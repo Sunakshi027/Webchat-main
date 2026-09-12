@@ -1,6 +1,7 @@
 import React from "react";
 
 import dummy from "../assets/avrar.jpg";
+
 import { useNavigate } from "react-router-dom";
 
 const Rightsidebar = ({
@@ -14,6 +15,10 @@ const Rightsidebar = ({
     return null;
   }
 
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+
   const handleLogout = () => {
     localStorage.removeItem("token");
 
@@ -26,17 +31,24 @@ const Rightsidebar = ({
   };
 
   // ==========================================
-  // ACTUAL SHARED MEDIA
+  // GET ACTUAL SHARED IMAGES
   // ==========================================
 
   const sharedImages = messages
-    .filter((msg) => msg.image)
+    .filter(
+      (msg) =>
+        msg &&
+        msg.image &&
+        typeof msg.image === "string"
+    )
     .map((msg) => msg.image);
 
   return (
     <div className="w-full h-full bg-white flex flex-col">
 
-      {/* ================= HEADER ================= */}
+      {/* ==========================================
+          HEADER
+      ========================================== */}
 
       <div
         className="
@@ -50,9 +62,12 @@ const Rightsidebar = ({
           shrink-0
         "
       >
+
         <button
           type="button"
-          onClick={() => setShowRightSidebar(false)}
+          onClick={() =>
+            setShowRightSidebar(false)
+          }
           className="
             w-9
             h-9
@@ -70,12 +85,21 @@ const Rightsidebar = ({
           ←
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-800">
+        <h2
+          className="
+            text-lg
+            font-semibold
+            text-gray-800
+          "
+        >
           Contact Info
         </h2>
+
       </div>
 
-      {/* ================= PROFILE ================= */}
+      {/* ==========================================
+          PROFILE
+      ========================================== */}
 
       <div
         className="
@@ -89,10 +113,14 @@ const Rightsidebar = ({
           border-gray-200
         "
       >
+
         <div className="relative group">
 
           <img
-            src={selectedUser.profilePic || dummy}
+            src={
+              selectedUser.profilePic ||
+              dummy
+            }
             alt="profile"
             className="
               w-24
@@ -110,17 +138,21 @@ const Rightsidebar = ({
           />
 
           <span
-            className="
+            className={`
               absolute
               bottom-1
               right-1
               w-4
               h-4
-              bg-green-500
               border-2
               border-white
               rounded-full
-            "
+              ${
+                selectedUser.isOnline
+                  ? "bg-green-500"
+                  : "bg-gray-400"
+              }
+            `}
           />
 
         </div>
@@ -149,8 +181,21 @@ const Rightsidebar = ({
           {selectedUser.email}
         </p>
 
-        <p className="text-xs text-green-500 font-medium mt-1">
-          Active now
+        <p
+          className={`
+            text-xs
+            font-medium
+            mt-1
+            ${
+              selectedUser.isOnline
+                ? "text-green-500"
+                : "text-gray-400"
+            }
+          `}
+        >
+          {selectedUser.isOnline
+            ? "Active now"
+            : "Offline"}
         </p>
 
         <p
@@ -163,28 +208,58 @@ const Rightsidebar = ({
             max-w-[260px]
           "
         >
-          {selectedUser.bio || "No bio available"}
+          {selectedUser.bio ||
+            "No bio available"}
         </p>
 
       </div>
 
-      {/* ================= SHARED MEDIA ================= */}
+      {/* ==========================================
+          SHARED MEDIA
+      ========================================== */}
 
-      <div className="flex-1 px-5 py-6 overflow-y-auto">
+      <div
+        className="
+          flex-1
+          px-5
+          py-6
+          overflow-y-auto
+        "
+      >
 
-        <div className="flex items-center justify-between mb-4">
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            mb-4
+          "
+        >
 
-          <h2 className="text-sm font-semibold text-gray-800">
+          <h2
+            className="
+              text-sm
+              font-semibold
+              text-gray-800
+            "
+          >
             Shared Media
           </h2>
 
-          <span className="text-xs text-gray-400">
+          <span
+            className="
+              text-xs
+              text-gray-400
+            "
+          >
             {sharedImages.length} files
           </span>
 
         </div>
 
-        {/* ================= NO MEDIA ================= */}
+        {/* ==========================================
+            NO MEDIA
+        ========================================== */}
 
         {sharedImages.length === 0 ? (
 
@@ -198,6 +273,7 @@ const Rightsidebar = ({
               text-center
             "
           >
+
             <div
               className="
                 w-14
@@ -214,58 +290,87 @@ const Rightsidebar = ({
               🖼️
             </div>
 
-            <p className="text-sm font-medium text-gray-500">
+            <p
+              className="
+                text-sm
+                font-medium
+                text-gray-500
+              "
+            >
               No shared media
             </p>
 
-            <p className="text-xs text-gray-400 mt-1">
-              Photos shared in this chat will appear here
+            <p
+              className="
+                text-xs
+                text-gray-400
+                mt-1
+              "
+            >
+              Photos shared in this
+              chat will appear here
             </p>
+
           </div>
 
         ) : (
 
-          /* ================= MEDIA GRID ================= */
+          /* ==========================================
+             MEDIA GRID
+          ========================================== */
 
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className="
+              grid
+              grid-cols-2
+              gap-2
+            "
+          >
 
-            {sharedImages.map((url, index) => (
+            {sharedImages.map(
+              (url, index) => (
 
-              <div
-                key={`${url}-${index}`}
-                onClick={() => window.open(url, "_blank")}
-                className="
-                  aspect-square
-                  rounded-lg
-                  overflow-hidden
-                  bg-gray-100
-                  cursor-pointer
-                  border
-                  border-gray-200
-                  group
-                  transition-all
-                  duration-300
-                  hover:-translate-y-1
-                  hover:shadow-md
-                "
-              >
-
-                <img
-                  src={url}
-                  alt="shared media"
+                <div
+                  key={`${url}-${index}`}
+                  onClick={() =>
+                    window.open(
+                      url,
+                      "_blank"
+                    )
+                  }
                   className="
-                    w-full
-                    h-full
-                    object-cover
-                    transition-transform
-                    duration-500
-                    group-hover:scale-110
+                    aspect-square
+                    rounded-lg
+                    overflow-hidden
+                    bg-gray-100
+                    cursor-pointer
+                    border
+                    border-gray-200
+                    group
+                    transition-all
+                    duration-300
+                    hover:-translate-y-1
+                    hover:shadow-md
                   "
-                />
+                >
 
-              </div>
+                  <img
+                    src={url}
+                    alt="shared media"
+                    className="
+                      w-full
+                      h-full
+                      object-cover
+                      transition-transform
+                      duration-500
+                      group-hover:scale-110
+                    "
+                  />
 
-            ))}
+                </div>
+
+              )
+            )}
 
           </div>
 
@@ -273,7 +378,9 @@ const Rightsidebar = ({
 
       </div>
 
-      {/* ================= LOGOUT ================= */}
+      {/* ==========================================
+          LOGOUT
+      ========================================== */}
 
       <div
         className="

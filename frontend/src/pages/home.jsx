@@ -13,26 +13,39 @@ const Home = () => {
   const [showRightSidebar, setShowRightSidebar] =
     useState(false);
 
-  // ==========================================
-  // SHARED CHAT MESSAGES
-  // ==========================================
-
-  const [messages, setMessages] = useState([]);
+  // Chat ke current messages yahan store honge
+  // Right Sidebar isi state se media show karega
+  const [chatMessages, setChatMessages] = useState([]);
 
   const navigate = useNavigate();
 
+  // ==========================================
+  // AUTH CHECK
+  // ==========================================
+
   useEffect(() => {
     authCheck()
-      .then(() => console.log("User authenticated"))
+      .then(() => {
+        console.log("User authenticated");
+      })
       .catch(() => {
         localStorage.removeItem("token");
         navigate("/");
       });
   }, [navigate]);
 
+  // ==========================================
+  // WHEN USER CHANGES
+  // CLEAR OLD CHAT MEDIA
+  // ==========================================
+
+  useEffect(() => {
+    setChatMessages([]);
+    setShowRightSidebar(false);
+  }, [selectedUser?._id]);
+
   return (
     <div className="w-full min-h-screen bg-gray-100 flex items-center justify-center">
-
       <div
         className="
           relative
@@ -53,7 +66,9 @@ const Home = () => {
         "
       >
 
-        {/* ================= LEFT SIDEBAR ================= */}
+        {/* ==========================================
+            LEFT SIDEBAR
+        ========================================== */}
 
         <div
           className={`
@@ -71,7 +86,9 @@ const Home = () => {
           />
         </div>
 
-        {/* ================= CHAT ================= */}
+        {/* ==========================================
+            CHAT
+        ========================================== */}
 
         <div
           className={`
@@ -86,14 +103,13 @@ const Home = () => {
             selectedUser={selectedUser}
             setSelectedUser={setSelectedUser}
             setShowRightSidebar={setShowRightSidebar}
-
-            // SEND MESSAGES TO CHAT
-            messages={messages}
-            setMessages={setMessages}
+            setChatMessages={setChatMessages}
           />
         </div>
 
-        {/* ================= RIGHT SIDEBAR ================= */}
+        {/* ==========================================
+            RIGHT SIDEBAR
+        ========================================== */}
 
         {selectedUser && (
           <div
@@ -114,6 +130,7 @@ const Home = () => {
               transition-transform
               duration-300
               ease-out
+
               ${
                 showRightSidebar
                   ? "translate-x-0"
@@ -121,20 +138,15 @@ const Home = () => {
               }
             `}
           >
-
             <Rightsidebar
               selectedUser={selectedUser}
               setShowRightSidebar={setShowRightSidebar}
-
-              // SEND SAME MESSAGES TO RIGHT SIDEBAR
-              messages={messages}
+              messages={chatMessages}
             />
-
           </div>
         )}
 
       </div>
-
     </div>
   );
 };

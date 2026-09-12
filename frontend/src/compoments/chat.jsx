@@ -42,7 +42,7 @@ const Chat = ({
   const [editMessage, setEditMessage] = useState("");
 
   // ==========================================
-  // SEND CURRENT CHAT MESSAGES TO HOME
+  // SEND CURRENT MESSAGES TO HOME
   // ==========================================
 
   useEffect(() => {
@@ -129,7 +129,7 @@ const Chat = ({
 
     const handleNewMessage = (message) => {
       console.log(
-        "🔥 NEW MESSAGE RECEIVED FROM SOCKET:",
+        "🔥 NEW MESSAGE RECEIVED:",
         message
       );
 
@@ -150,30 +150,6 @@ const Chat = ({
         message.receiver?._id ||
         message.receiver ||
         "";
-
-      console.log(
-        "👤 SOCKET SENDER:",
-        senderId
-      );
-
-      console.log(
-        "👤 SOCKET RECEIVER:",
-        receiverId
-      );
-
-      console.log(
-        "👤 CURRENT USER:",
-        currentUser._id
-      );
-
-      console.log(
-        "👤 SELECTED USER:",
-        selectedUser?._id
-      );
-
-      // ==========================================
-      // CHECK CURRENT CHAT
-      // ==========================================
 
       const isFromSelectedUser =
         String(senderId) ===
@@ -196,7 +172,7 @@ const Chat = ({
       }
 
       // ==========================================
-      // ADD MESSAGE
+      // ADD NEW MESSAGE
       // ==========================================
 
       setMessages((prev) => {
@@ -217,7 +193,7 @@ const Chat = ({
         }
 
         console.log(
-          "✅ MESSAGE ADDED TO CHAT:",
+          "✅ MESSAGE ADDED:",
           message
         );
 
@@ -228,7 +204,7 @@ const Chat = ({
       });
 
       // ==========================================
-      // MARK RECEIVED MESSAGE AS SEEN
+      // MARK RECEIVED MESSAGE SEEN
       // ==========================================
 
       if (isFromSelectedUser) {
@@ -236,10 +212,6 @@ const Chat = ({
           selectedUser._id
         )
           .then(() => {
-            console.log(
-              "👀 MESSAGE MARKED SEEN"
-            );
-
             socket.emit(
               "message-seen",
               {
@@ -285,11 +257,6 @@ const Chat = ({
     const handleMessageSeen = ({
       messageId,
     }) => {
-      console.log(
-        "👀 MESSAGE SEEN:",
-        messageId
-      );
-
       setMessages((prev) =>
         prev.map((msg) => {
           if (
@@ -328,11 +295,6 @@ const Chat = ({
     const handleMessageDelivered = ({
       messageId,
     }) => {
-      console.log(
-        "✓ MESSAGE DELIVERED:",
-        messageId
-      );
-
       setMessages((prev) =>
         prev.map((msg) => {
           if (
@@ -370,6 +332,11 @@ const Chat = ({
   useEffect(() => {
     if (!selectedUser?._id) {
       setMessages([]);
+
+      if (setChatMessages) {
+        setChatMessages([]);
+      }
+
       return;
     }
 
@@ -387,7 +354,25 @@ const Chat = ({
           data ||
           [];
 
+        console.log(
+          "📩 LOADED CHAT MESSAGES:",
+          messageList
+        );
+
+        // ==========================================
+        // SET CHAT MESSAGES
+        // ==========================================
+
         setMessages(messageList);
+
+        // ==========================================
+        // SEND OLD MESSAGES TO HOME
+        // FOR RIGHT SIDEBAR MEDIA
+        // ==========================================
+
+        if (setChatMessages) {
+          setChatMessages(messageList);
+        }
 
         await markMessagesSeen(
           selectedUser._id
@@ -396,6 +381,7 @@ const Chat = ({
         console.log(
           "👀 CHAT MESSAGES MARKED SEEN"
         );
+
       } catch (error) {
         console.log(
           "Get messages error:",
@@ -404,13 +390,22 @@ const Chat = ({
         );
 
         setMessages([]);
+
+        if (setChatMessages) {
+          setChatMessages([]);
+        }
+
       } finally {
         setLoading(false);
       }
     };
 
     loadMessages();
-  }, [selectedUser?._id]);
+
+  }, [
+    selectedUser?._id,
+    setChatMessages,
+  ]);
 
   // ==========================================
   // AUTO SCROLL
@@ -443,10 +438,6 @@ const Chat = ({
     try {
       setSending(true);
 
-      // ==========================================
-      // SAVE MESSAGE TO DATABASE
-      // ==========================================
-
       const data =
         await sendMessage(
           selectedUser._id,
@@ -464,7 +455,7 @@ const Chat = ({
       );
 
       // ==========================================
-      // SHOW MESSAGE IMMEDIATELY
+      // ADD NEW MESSAGE
       // ==========================================
 
       setMessages((prev) => {
@@ -488,22 +479,13 @@ const Chat = ({
       });
 
       // ==========================================
-      // SEND THROUGH SOCKET
+      // SEND SOCKET
       // ==========================================
 
       if (socket.connected) {
-        console.log(
-          "📤 SENDING MESSAGE THROUGH SOCKET:",
-          newMessage
-        );
-
         socket.emit(
           "send-message",
           newMessage
-        );
-      } else {
-        console.log(
-          "⚠️ SOCKET NOT CONNECTED"
         );
       }
 
@@ -522,6 +504,7 @@ const Chat = ({
       if (fileInput) {
         fileInput.value = "";
       }
+
     } catch (error) {
       console.log(
         "Send message error:",
@@ -596,6 +579,7 @@ const Chat = ({
       );
 
       setShowMenu(null);
+
     } catch (error) {
       console.log(
         "Delete error:",
@@ -646,6 +630,7 @@ const Chat = ({
       setEditId(null);
       setEditMessage("");
       setShowMenu(null);
+
     } catch (error) {
       console.log(
         "Update error:",
@@ -693,6 +678,7 @@ const Chat = ({
       );
 
       setShowMenu(null);
+
     } catch (error) {
       console.log(
         "Favourite error:",
@@ -806,7 +792,7 @@ const Chat = ({
       "
     >
 
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
 
       <div
         className="
@@ -940,7 +926,7 @@ const Chat = ({
 
         </div>
 
-        {/* RIGHT SIDEBAR */}
+        {/* RIGHT SIDEBAR BUTTON */}
 
         <button
           type="button"
@@ -972,7 +958,7 @@ const Chat = ({
 
       </div>
 
-      {/* ================= MESSAGE AREA ================= */}
+      {/* MESSAGE AREA */}
 
       <div
         className="
@@ -1393,8 +1379,7 @@ const Chat = ({
                             }
                             onChange={(e) =>
                               setEditMessage(
-                                e.target
-                                  .value
+                                e.target.value
                               )
                             }
                             onKeyDown={(e) => {
@@ -1611,7 +1596,7 @@ const Chat = ({
 
       </div>
 
-      {/* ================= IMAGE PREVIEW ================= */}
+      {/* IMAGE PREVIEW */}
 
       {selectedImage && (
         <div
@@ -1671,7 +1656,7 @@ const Chat = ({
         </div>
       )}
 
-      {/* ================= MESSAGE INPUT ================= */}
+      {/* MESSAGE INPUT */}
 
       <div
         className="
