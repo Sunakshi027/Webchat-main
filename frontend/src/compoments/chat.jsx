@@ -4,7 +4,6 @@ import avtar from "../assets/avrar.jpg";
 import arrow from "../assets/arrow icon.jpg";
 import galary from "../assets/galary icon1.png";
 import send from "../assets/sendmessage.png";
-import icom from "../assets/image.png";
 
 import { formatMessageTime } from "../library/utils";
 
@@ -67,8 +66,7 @@ const Chat = ({
   }, []);
 
   // ==========================================
-  // SOCKET - REGISTER USER ONLINE
-  // IMPORTANT FOR REAL TIME
+  // REGISTER USER TO SOCKET
   // ==========================================
 
   useEffect(() => {
@@ -77,7 +75,14 @@ const Chat = ({
     }
 
     const registerUser = () => {
-      socket.emit("user-online", currentUser._id);
+      if (!socket.connected) {
+        return;
+      }
+
+      socket.emit(
+        "user-online",
+        String(currentUser._id)
+      );
 
       console.log(
         "🟢 USER REGISTERED TO SOCKET:",
@@ -85,21 +90,27 @@ const Chat = ({
       );
     };
 
-    // If socket already connected
+    // socket already connected
     if (socket.connected) {
       registerUser();
     }
 
-    // Register again whenever socket reconnects
-    socket.on("connect", registerUser);
+    // socket reconnect
+    socket.on(
+      "connect",
+      registerUser
+    );
 
     return () => {
-      socket.off("connect", registerUser);
+      socket.off(
+        "connect",
+        registerUser
+      );
     };
   }, [currentUser?._id]);
 
   // ==========================================
-  // SOCKET - RECEIVE NEW MESSAGE
+  // RECEIVE NEW MESSAGE
   // ==========================================
 
   useEffect(() => {
@@ -131,35 +142,52 @@ const Chat = ({
         message.receiver ||
         "";
 
-      console.log("👤 SOCKET SENDER:", senderId);
-      console.log("👤 SOCKET RECEIVER:", receiverId);
+      console.log(
+        "👤 SOCKET SENDER:",
+        senderId
+      );
+
+      console.log(
+        "👤 SOCKET RECEIVER:",
+        receiverId
+      );
+
       console.log(
         "👤 CURRENT USER:",
-        currentUser?._id
+        currentUser._id
       );
+
       console.log(
         "👤 SELECTED USER:",
         selectedUser?._id
       );
 
       // ==========================================
-      // CHECK CURRENT CHAT
+      // CHECK WHETHER MESSAGE BELONGS TO CURRENT CHAT
       // ==========================================
 
+      const isFromSelectedUser =
+        String(senderId) ===
+        String(selectedUser?._id);
+
+      const isToSelectedUser =
+        String(receiverId) ===
+        String(selectedUser?._id);
+
       const isCurrentChat =
-        String(senderId) === String(selectedUser?._id) ||
-        String(receiverId) === String(selectedUser?._id);
+        isFromSelectedUser ||
+        isToSelectedUser;
 
       if (!isCurrentChat) {
         console.log(
-          "⚠️ Message belongs to another chat"
+          "⚠️ MESSAGE BELONGS TO ANOTHER CHAT"
         );
 
         return;
       }
 
       // ==========================================
-      // ADD MESSAGE WITHOUT DUPLICATE
+      // ADD MESSAGE
       // ==========================================
 
       setMessages((prev) => {
@@ -167,12 +195,13 @@ const Chat = ({
           (msg) =>
             msg._id &&
             message._id &&
-            String(msg._id) === String(message._id)
+            String(msg._id) ===
+              String(message._id)
         );
 
         if (exists) {
           console.log(
-            "⚠️ Duplicate message ignored"
+            "⚠️ DUPLICATE MESSAGE IGNORED"
           );
 
           return prev;
@@ -183,26 +212,49 @@ const Chat = ({
           message
         );
 
-        return [...prev, message];
+        return [
+          ...prev,
+          message,
+        ];
       });
 
       // ==========================================
-      // MARK MESSAGE SEEN
+      // MARK RECEIVED MESSAGE AS SEEN
       // ==========================================
 
-      if (
-        String(senderId) ===
-        String(selectedUser?._id)
-      ) {
-        markMessagesSeen(selectedUser._id).catch(
-          (error) => {
+      if (isFromSelectedUser) {
+        markMessagesSeen(
+          selectedUser._id
+        )
+          .then(() => {
+            console.log(
+              "👀 MESSAGE MARKED SEEN"
+            );
+
+            /*
+              Tell sender that message was seen.
+              Backend will send message-seen-update
+              back to sender.
+            */
+
+            socket.emit(
+              "message-seen",
+              {
+                messageId:
+                  message._id,
+
+                senderId:
+                  senderId,
+              }
+            );
+          })
+          .catch((error) => {
             console.log(
               "Seen error:",
               error.response?.data ||
                 error.message
             );
-          }
-        );
+          });
       }
     };
 
@@ -223,6 +275,92 @@ const Chat = ({
   ]);
 
   // ==========================================
+  // REALTIME MESSAGE SEEN
+  // ==========================================
+
+  useEffect(() => {
+    const handleMessageSeen = ({
+      messageId,
+    }) => {
+      console.log(
+        "👀 MESSAGE SEEN:",
+        messageId
+      );
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            String(msg._id) ===
+            String(messageId)
+          ) {
+            return {
+              ...msg,
+              seen: true,
+            };
+          }
+
+          return msg;
+        })
+      );
+    };
+
+    socket.on(
+      "message-seen-update",
+      handleMessageSeen
+    );
+
+    return () => {
+      socket.off(
+        "message-seen-update",
+        handleMessageSeen
+      );
+    };
+  }, []);
+
+  // ==========================================
+  // MESSAGE DELIVERED
+  // ==========================================
+
+  useEffect(() => {
+    const handleMessageDelivered = ({
+      messageId,
+    }) => {
+      console.log(
+        "✓ MESSAGE DELIVERED:",
+        messageId
+      );
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            String(msg._id) ===
+            String(messageId)
+          ) {
+            return {
+              ...msg,
+              delivered: true,
+            };
+          }
+
+          return msg;
+        })
+      );
+    };
+
+    socket.on(
+      "message-delivered",
+      handleMessageDelivered
+    );
+
+    return () => {
+      socket.off(
+        "message-delivered",
+        handleMessageDelivered
+      );
+    };
+  }, []);
+
+  // ==========================================
   // LOAD MESSAGES
   // ==========================================
 
@@ -235,39 +373,25 @@ const Chat = ({
       try {
         setLoading(true);
 
-        const data = await getMessages(
+        const data =
+          await getMessages(
+            selectedUser._id
+          );
+
+        const messageList =
+          data?.messages ||
+          data ||
+          [];
+
+        setMessages(messageList);
+
+        // Mark received messages as seen
+        await markMessagesSeen(
           selectedUser._id
         );
 
-        const messageList =
-          data?.messages || data || [];
-
-        const updatedMessages =
-          messageList.map((msg) => {
-            const senderId =
-              msg.senderId?._id ||
-              msg.senderId ||
-              msg.sender?._id ||
-              msg.sender ||
-              "";
-
-            if (
-              String(senderId) ===
-              String(selectedUser._id)
-            ) {
-              return {
-                ...msg,
-                seen: true,
-              };
-            }
-
-            return msg;
-          });
-
-        setMessages(updatedMessages);
-
-        await markMessagesSeen(
-          selectedUser._id
+        console.log(
+          "👀 CHAT MESSAGES MARKED SEEN"
         );
       } catch (error) {
         console.log(
@@ -306,7 +430,10 @@ const Chat = ({
       return;
     }
 
-    if (!text.trim() && !selectedImage) {
+    if (
+      !text.trim() &&
+      !selectedImage
+    ) {
       return;
     }
 
@@ -314,30 +441,19 @@ const Chat = ({
       setSending(true);
 
       // ==========================================
-      // SAVE MESSAGE IN DATABASE
+      // SAVE MESSAGE TO DATABASE
       // ==========================================
 
-      const data = await sendMessage(
-        selectedUser._id,
-        text.trim(),
-        selectedImage
-      );
-
-      // Controller now returns:
-      // {
-      //   message: {
-      //      senderId,
-      //      receiverId,
-      //      sender,
-      //      receiver,
-      //      text,
-      //      image,
-      //      createdAt
-      //   }
-      // }
+      const data =
+        await sendMessage(
+          selectedUser._id,
+          text.trim(),
+          selectedImage
+        );
 
       const newMessage =
-        data?.message || data;
+        data?.message ||
+        data;
 
       console.log(
         "📨 MESSAGE FROM API:",
@@ -349,34 +465,44 @@ const Chat = ({
       // ==========================================
 
       setMessages((prev) => {
-        const exists = prev.some(
-          (msg) =>
-            msg._id &&
-            newMessage?._id &&
-            String(msg._id) ===
-              String(newMessage._id)
-        );
+        const exists =
+          prev.some(
+            (msg) =>
+              msg._id &&
+              newMessage?._id &&
+              String(msg._id) ===
+                String(newMessage._id)
+          );
 
         if (exists) {
           return prev;
         }
 
-        return [...prev, newMessage];
+        return [
+          ...prev,
+          newMessage,
+        ];
       });
 
       // ==========================================
-      // SEND THROUGH SOCKET
+      // SEND MESSAGE THROUGH SOCKET
       // ==========================================
 
-      console.log(
-        "📤 SENDING MESSAGE THROUGH SOCKET:",
-        newMessage
-      );
+      if (socket.connected) {
+        console.log(
+          "📤 SENDING MESSAGE THROUGH SOCKET:",
+          newMessage
+        );
 
-      socket.emit(
-        "send-message",
-        newMessage
-      );
+        socket.emit(
+          "send-message",
+          newMessage
+        );
+      } else {
+        console.log(
+          "⚠️ SOCKET NOT CONNECTED"
+        );
+      }
 
       // ==========================================
       // CLEAR INPUT
@@ -386,7 +512,9 @@ const Chat = ({
       setSelectedImage(null);
 
       const fileInput =
-        document.getElementById("image");
+        document.getElementById(
+          "image"
+        );
 
       if (fileInput) {
         fileInput.value = "";
@@ -419,7 +547,8 @@ const Chat = ({
   // ==========================================
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file =
+      e.target.files[0];
 
     if (file) {
       setSelectedImage(file);
@@ -434,7 +563,9 @@ const Chat = ({
     setSelectedImage(null);
 
     const fileInput =
-      document.getElementById("image");
+      document.getElementById(
+        "image"
+      );
 
     if (fileInput) {
       fileInput.value = "";
@@ -445,13 +576,19 @@ const Chat = ({
   // DELETE MESSAGE
   // ==========================================
 
-  const deleteHandler = async (messageId) => {
+  const deleteHandler = async (
+    messageId
+  ) => {
     try {
-      await deleteMessage(messageId);
+      await deleteMessage(
+        messageId
+      );
 
       setMessages((prev) =>
         prev.filter(
-          (msg) => msg._id !== messageId
+          (msg) =>
+            String(msg._id) !==
+            String(messageId)
         )
       );
 
@@ -469,23 +606,35 @@ const Chat = ({
   // UPDATE MESSAGE
   // ==========================================
 
-  const updateHandler = async (messageId) => {
+  const updateHandler = async (
+    messageId
+  ) => {
     if (!editMessage.trim()) {
       return;
     }
 
     try {
-      await updateMessage(
-        messageId,
-        editMessage.trim()
-      );
+      const response =
+        await updateMessage(
+          messageId,
+          editMessage.trim()
+        );
+
+      const updatedMessage =
+        response?.message ||
+        response?.data?.message ||
+        response?.data ||
+        response;
 
       setMessages((prev) =>
         prev.map((msg) =>
-          msg._id === messageId
+          String(msg._id) ===
+          String(messageId)
             ? {
                 ...msg,
-                text: editMessage.trim(),
+                text:
+                  updatedMessage?.text ||
+                  editMessage.trim(),
               }
             : msg
         )
@@ -512,7 +661,9 @@ const Chat = ({
   ) => {
     try {
       const response =
-        await toggleFavourite(messageId);
+        await toggleFavourite(
+          messageId
+        );
 
       const updatedMessage =
         response?.message ||
@@ -522,7 +673,10 @@ const Chat = ({
 
       setMessages((prev) =>
         prev.map((msg) => {
-          if (msg._id !== messageId) {
+          if (
+            String(msg._id) !==
+            String(messageId)
+          ) {
             return msg;
           }
 
@@ -622,8 +776,9 @@ const Chat = ({
               text-gray-400
             "
           >
-            Select a conversation from the
-            left to start chatting.
+            Select a conversation
+            from the left to start
+            chatting.
           </p>
         </div>
       </div>
@@ -772,12 +927,14 @@ const Chat = ({
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR BUTTON */}
+        {/* RIGHT SIDEBAR */}
 
         <button
           type="button"
           onClick={() =>
-            setShowRightSidebar(true)
+            setShowRightSidebar(
+              true
+            )
           }
           className="
             w-9
@@ -830,7 +987,8 @@ const Chat = ({
               Loading messages...
             </div>
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length ===
+          0 ? (
           <div
             className="
               h-full
@@ -878,7 +1036,8 @@ const Chat = ({
                   mt-1
                 "
               >
-                Start a new conversation
+                Start a new
+                conversation
               </p>
             </div>
           </div>
@@ -892,207 +1051,168 @@ const Chat = ({
               gap-5
             "
           >
-            {messages.map((msg, index) => {
-              const senderId =
-                msg.senderId?._id ||
-                msg.senderId ||
-                msg.sender?._id ||
-                msg.sender ||
-                "";
+            {messages.map(
+              (msg, index) => {
+                const senderId =
+                  msg.senderId?._id ||
+                  msg.senderId ||
+                  msg.sender?._id ||
+                  msg.sender ||
+                  "";
 
-              const isMe =
-                String(senderId) ===
-                String(currentUser?._id);
+                const isMe =
+                  String(senderId) ===
+                  String(
+                    currentUser?._id
+                  );
 
-              return (
-                <div
-                  key={
-                    msg._id || index
-                  }
-                  className={`
-                    flex
-                    items-end
-                    gap-2.5
-                    group
-                    ${
-                      isMe
-                        ? "justify-end"
-                        : "justify-start"
-                    }
-                  `}
-                >
-                  {/* OTHER USER AVATAR */}
-
-                  {!isMe && (
-                    <img
-                      src={
-                        selectedUser.profilePic ||
-                        avtar
-                      }
-                      alt=""
-                      className="
-                        w-8
-                        h-8
-                        rounded-full
-                        object-cover
-                        flex-shrink-0
-                      "
-                    />
-                  )}
-
-                  {/* MESSAGE */}
-
+                return (
                   <div
-                    className="
-                      relative
-                      max-w-[75%]
-                      sm:max-w-[65%]
-                    "
+                    key={
+                      msg._id ||
+                      index
+                    }
+                    className={`
+                      flex
+                      items-end
+                      gap-2.5
+                      group
+                      ${
+                        isMe
+                          ? "justify-end"
+                          : "justify-start"
+                      }
+                    `}
                   >
-                    {/* FAVOURITE */}
+                    {/* OTHER USER AVATAR */}
 
-                    {msg.isFavourite && (
-                      <div
+                    {!isMe && (
+                      <img
+                        src={
+                          selectedUser.profilePic ||
+                          avtar
+                        }
+                        alt=""
                         className="
-                          absolute
-                          -top-2
-                          -right-2
-                          z-20
-                          w-6
-                          h-6
+                          w-8
+                          h-8
                           rounded-full
-                          bg-white
-                          border
-                          border-gray-100
-                          shadow-sm
-                          flex
-                          items-center
-                          justify-center
-                          text-yellow-500
-                          text-xs
+                          object-cover
+                          flex-shrink-0
                         "
-                      >
-                        ★
-                      </div>
+                      />
                     )}
 
-                    {/* THREE DOT */}
+                    {/* MESSAGE */}
 
-                    {isMe && (
-                      <div
-                        className="
-                          absolute
-                          -left-10
-                          top-1/2
-                          -translate-y-1/2
-                          z-40
-                        "
-                        onClick={(e) =>
-                          e.stopPropagation()
-                        }
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowMenu(
-                              showMenu ===
-                                msg._id
-                                ? null
-                                : msg._id
-                            )
-                          }
+                    <div
+                      className="
+                        relative
+                        max-w-[75%]
+                        sm:max-w-[65%]
+                      "
+                    >
+                      {/* FAVOURITE */}
+
+                      {msg.isFavourite && (
+                        <div
                           className="
-                            w-8
-                            h-8
+                            absolute
+                            -top-2
+                            -right-2
+                            z-20
+                            w-6
+                            h-6
                             rounded-full
                             bg-white
                             border
                             border-gray-100
                             shadow-sm
-                            text-gray-400
-                            hover:text-gray-700
-                            hover:shadow
-                            transition
                             flex
                             items-center
                             justify-center
+                            text-yellow-500
+                            text-xs
                           "
                         >
-                          ⋮
-                        </button>
+                          ★
+                        </div>
+                      )}
 
-                        {/* MENU */}
+                      {/* THREE DOT */}
 
-                        {showMenu ===
-                          msg._id && (
-                          <div
-                            onClick={(e) =>
-                              e.stopPropagation()
+                      {isMe && (
+                        <div
+                          className="
+                            absolute
+                            -left-10
+                            top-1/2
+                            -translate-y-1/2
+                            z-40
+                          "
+                          onClick={(e) =>
+                            e.stopPropagation()
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowMenu(
+                                showMenu ===
+                                  msg._id
+                                  ? null
+                                  : msg._id
+                              )
                             }
                             className="
-                              absolute
-                              right-0
-                              top-9
-                              w-40
+                              w-8
+                              h-8
+                              rounded-full
                               bg-white
                               border
                               border-gray-100
-                              rounded-2xl
-                              shadow-[0_15px_40px_rgba(0,0,0,0.12)]
-                              p-1.5
-                              overflow-hidden
+                              shadow-sm
+                              text-gray-400
+                              hover:text-gray-700
+                              hover:shadow
+                              transition
+                              flex
+                              items-center
+                              justify-center
                             "
                           >
-                            {/* FAVOURITE */}
+                            ⋮
+                          </button>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                favouriteHandler(
-                                  msg._id
-                                )
+                          {showMenu ===
+                            msg._id && (
+                            <div
+                              onClick={(e) =>
+                                e.stopPropagation()
                               }
                               className="
-                                w-full
-                                px-3
-                                py-2.5
-                                rounded-xl
-                                text-left
-                                text-sm
-                                text-gray-700
-                                hover:bg-gray-50
+                                absolute
+                                right-0
+                                top-9
+                                w-40
+                                bg-white
+                                border
+                                border-gray-100
+                                rounded-2xl
+                                shadow-[0_15px_40px_rgba(0,0,0,0.12)]
+                                p-1.5
+                                overflow-hidden
                               "
                             >
-                              <span className="mr-2">
-                                {msg.isFavourite
-                                  ? "★"
-                                  : "☆"}
-                              </span>
+                              {/* FAVOURITE */}
 
-                              {msg.isFavourite
-                                ? "Unfavourite"
-                                : "Favourite"}
-                            </button>
-
-                            {/* UPDATE */}
-
-                            {!msg.image && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEditId(
+                                onClick={() =>
+                                  favouriteHandler(
                                     msg._id
-                                  );
-
-                                  setEditMessage(
-                                    msg.text ||
-                                      ""
-                                  );
-
-                                  setShowMenu(
-                                    null
-                                  );
-                                }}
+                                  )
+                                }
                                 className="
                                   w-full
                                   px-3
@@ -1105,286 +1225,338 @@ const Chat = ({
                                 "
                               >
                                 <span className="mr-2">
-                                  ✎
+                                  {msg.isFavourite
+                                    ? "★"
+                                    : "☆"}
                                 </span>
 
-                                Update
+                                {msg.isFavourite
+                                  ? "Unfavourite"
+                                  : "Favourite"}
                               </button>
-                            )}
 
-                            {/* DELETE */}
+                              {/* UPDATE */}
+
+                              {!msg.image && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditId(
+                                      msg._id
+                                    );
+
+                                    setEditMessage(
+                                      msg.text ||
+                                        ""
+                                    );
+
+                                    setShowMenu(
+                                      null
+                                    );
+                                  }}
+                                  className="
+                                    w-full
+                                    px-3
+                                    py-2.5
+                                    rounded-xl
+                                    text-left
+                                    text-sm
+                                    text-gray-700
+                                    hover:bg-gray-50
+                                  "
+                                >
+                                  <span className="mr-2">
+                                    ✎
+                                  </span>
+
+                                  Update
+                                </button>
+                              )}
+
+                              {/* DELETE */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteHandler(
+                                    msg._id
+                                  )
+                                }
+                                className="
+                                  w-full
+                                  px-3
+                                  py-2.5
+                                  rounded-xl
+                                  text-left
+                                  text-sm
+                                  text-red-500
+                                  hover:bg-red-50
+                                "
+                              >
+                                <span className="mr-2">
+                                  ×
+                                </span>
+
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* IMAGE */}
+
+                      {msg.image && (
+                        <div
+                          className={`
+                            overflow-hidden
+                            rounded-2xl
+                            ${
+                              isMe
+                                ? "rounded-br-md"
+                                : "rounded-bl-md"
+                            }
+                          `}
+                        >
+                          <img
+                            src={msg.image}
+                            alt="message"
+                            className="
+                              max-w-[300px]
+                              max-h-[350px]
+                              object-cover
+                              block
+                              shadow-sm
+                            "
+                          />
+                        </div>
+                      )}
+
+                      {/* EDIT */}
+
+                      {editId ===
+                      msg._id ? (
+                        <div
+                          onClick={(e) =>
+                            e.stopPropagation()
+                          }
+                          className="
+                            bg-white
+                            border
+                            border-gray-200
+                            rounded-2xl
+                            p-2
+                            shadow-lg
+                            w-[280px]
+                          "
+                        >
+                          <input
+                            autoFocus
+                            type="text"
+                            value={
+                              editMessage
+                            }
+                            onChange={(e) =>
+                              setEditMessage(
+                                e.target
+                                  .value
+                              )
+                            }
+                            onKeyDown={(e) => {
+                              if (
+                                e.key ===
+                                "Enter"
+                              ) {
+                                updateHandler(
+                                  msg._id
+                                );
+                              }
+
+                              if (
+                                e.key ===
+                                "Escape"
+                              ) {
+                                setEditId(
+                                  null
+                                );
+
+                                setEditMessage(
+                                  ""
+                                );
+                              }
+                            }}
+                            className="
+                              w-full
+                              h-10
+                              px-3
+                              rounded-xl
+                              bg-gray-50
+                              border
+                              border-gray-100
+                              outline-none
+                              text-sm
+                              text-gray-700
+                            "
+                          />
+
+                          <div
+                            className="
+                              flex
+                              justify-end
+                              gap-2
+                              mt-2
+                            "
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditId(
+                                  null
+                                );
+
+                                setEditMessage(
+                                  ""
+                                );
+                              }}
+                              className="
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                text-xs
+                                text-gray-500
+                                hover:bg-gray-100
+                              "
+                            >
+                              Cancel
+                            </button>
 
                             <button
                               type="button"
                               onClick={() =>
-                                deleteHandler(
+                                updateHandler(
                                   msg._id
                                 )
                               }
                               className="
-                                w-full
-                                px-3
-                                py-2.5
-                                rounded-xl
-                                text-left
-                                text-sm
-                                text-red-500
-                                hover:bg-red-50
+                                px-4
+                                py-1.5
+                                rounded-lg
+                                text-xs
+                                bg-black
+                                text-white
+                                hover:bg-gray-800
                               "
                             >
-                              <span className="mr-2">
-                                ×
-                              </span>
-
-                              Delete
+                              Save
                             </button>
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      ) : (
+                        msg.text && (
+                          <div
+                            className={`
+                              px-4
+                              py-3
+                              text-[14px]
+                              leading-6
+                              break-words
+                              shadow-sm
+                              ${
+                                isMe
+                                  ? `
+                                    bg-[#2563eb]
+                                    text-white
+                                    rounded-2xl
+                                    rounded-br-md
+                                  `
+                                  : `
+                                    bg-white
+                                    text-gray-700
+                                    border
+                                    border-gray-100
+                                    rounded-2xl
+                                    rounded-bl-md
+                                  `
+                              }
+                            `}
+                          >
+                            {msg.text}
+                          </div>
+                        )
+                      )}
 
-                    {/* IMAGE */}
+                      {/* TIME + TICKS */}
 
-                    {msg.image && (
                       <div
                         className={`
-                          overflow-hidden
-                          rounded-2xl
+                          flex
+                          items-center
+                          gap-1.5
+                          mt-1.5
+                          px-1
                           ${
                             isMe
-                              ? "rounded-br-md"
-                              : "rounded-bl-md"
+                              ? "justify-end"
+                              : "justify-start"
                           }
                         `}
                       >
-                        <img
-                          src={msg.image}
-                          alt="message"
-                          className="
-                            max-w-[300px]
-                            max-h-[350px]
-                            object-cover
-                            block
-                            shadow-sm
-                          "
-                        />
-                      </div>
-                    )}
-
-                    {/* EDIT */}
-
-                    {editId === msg._id ? (
-                      <div
-                        onClick={(e) =>
-                          e.stopPropagation()
-                        }
-                        className="
-                          bg-white
-                          border
-                          border-gray-200
-                          rounded-2xl
-                          p-2
-                          shadow-lg
-                          w-[280px]
-                        "
-                      >
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editMessage}
-                          onChange={(e) =>
-                            setEditMessage(
-                              e.target.value
-                            )
-                          }
-                          onKeyDown={(e) => {
-                            if (
-                              e.key ===
-                              "Enter"
-                            ) {
-                              updateHandler(
-                                msg._id
-                              );
-                            }
-
-                            if (
-                              e.key ===
-                              "Escape"
-                            ) {
-                              setEditId(null);
-                              setEditMessage(
-                                ""
-                              );
-                            }
-                          }}
-                          className="
-                            w-full
-                            h-10
-                            px-3
-                            rounded-xl
-                            bg-gray-50
-                            border
-                            border-gray-100
-                            outline-none
-                            text-sm
-                            text-gray-700
-                          "
-                        />
-
-                        <div
-                          className="
-                            flex
-                            justify-end
-                            gap-2
-                            mt-2
-                          "
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditId(null);
-                              setEditMessage(
-                                ""
-                              );
-                            }}
-                            className="
-                              px-3
-                              py-1.5
-                              rounded-lg
-                              text-xs
-                              text-gray-500
-                              hover:bg-gray-100
-                            "
-                          >
-                            Cancel
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateHandler(
-                                msg._id
-                              )
-                            }
-                            className="
-                              px-4
-                              py-1.5
-                              rounded-lg
-                              text-xs
-                              bg-black
-                              text-white
-                              hover:bg-gray-800
-                            "
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      msg.text && (
-                        <div
-                          className={`
-                            px-4
-                            py-3
-                            text-[14px]
-                            leading-6
-                            break-words
-                            shadow-sm
-                            ${
-                              isMe
-                                ? `
-                                  bg-[#2563eb]
-                                  text-white
-                                  rounded-2xl
-                                  rounded-br-md
-                                `
-                                : `
-                                  bg-white
-                                  text-gray-700
-                                  border
-                                  border-gray-100
-                                  rounded-2xl
-                                  rounded-bl-md
-                                `
-                            }
-                          `}
-                        >
-                          {msg.text}
-                        </div>
-                      )
-                    )}
-
-                    {/* TIME */}
-
-                    <div
-                      className={`
-                        flex
-                        items-center
-                        gap-1.5
-                        mt-1.5
-                        px-1
-                        ${
-                          isMe
-                            ? "justify-end"
-                            : "justify-start"
-                        }
-                      `}
-                    >
-                      <span
-                        className="
-                          text-[10px]
-                          text-gray-400
-                        "
-                      >
-                        {formatMessageTime(
-                          msg.createdAt
-                        )}
-                      </span>
-
-                      {/* SEEN */}
-
-                      {isMe && (
                         <span
-                          className={`
-                            text-[11px]
-                            ${
-                              msg.seen
-                                ? "text-blue-500"
-                                : "text-gray-400"
-                            }
-                          `}
+                          className="
+                            text-[10px]
+                            text-gray-400
+                          "
                         >
-                          {msg.seen
-                            ? "✓✓"
-                            : "✓"}
+                          {formatMessageTime(
+                            msg.createdAt
+                          )}
                         </span>
-                      )}
+
+                        {isMe && (
+                          <span
+                            className={`
+                              text-[11px]
+                              ${
+                                msg.seen
+                                  ? "text-blue-500"
+                                  : "text-gray-400"
+                              }
+                            `}
+                          >
+                            {msg.seen
+                              ? "✓✓"
+                              : "✓"}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* MY AVATAR */}
+
+                    {isMe && (
+                      <img
+                        src={
+                          currentUser?.profilePic ||
+                          avtar
+                        }
+                        alt=""
+                        className="
+                          w-8
+                          h-8
+                          rounded-full
+                          object-cover
+                          flex-shrink-0
+                        "
+                      />
+                    )}
                   </div>
+                );
+              }
+            )}
 
-                  {/* MY AVATAR */}
-
-                  {isMe && (
-                    <img
-                      src={
-                        currentUser?.profilePic ||
-                        avtar
-                      }
-                      alt=""
-                      className="
-                        w-8
-                        h-8
-                        rounded-full
-                        object-cover
-                        flex-shrink-0
-                      "
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-            <div ref={scrollEnd} />
+            <div
+              ref={scrollEnd}
+            />
           </div>
         )}
       </div>
@@ -1509,7 +1681,9 @@ const Chat = ({
               id="image"
               type="file"
               accept="image/*"
-              onChange={handleImageChange}
+              onChange={
+                handleImageChange
+              }
               className="hidden"
             />
 
@@ -1519,9 +1693,13 @@ const Chat = ({
               type="text"
               value={text}
               onChange={(e) =>
-                setText(e.target.value)
+                setText(
+                  e.target.value
+                )
               }
-              onKeyDown={handleKeyDown}
+              onKeyDown={
+                handleKeyDown
+              }
               placeholder="Write a message..."
               className="
                 flex-1

@@ -74,11 +74,7 @@ const sendMessage = async (req, res) => {
       receiver: receiverId,
       text: text || "",
       image: imageUrl,
-
-      // New message is unread
       seen: false,
-
-      // New message is not favourite
       isFavourite: false,
     });
 
@@ -86,12 +82,32 @@ const sendMessage = async (req, res) => {
     // POPULATE USER DATA
     // =================================================
 
-    const populatedMessage = await Message.findById(message._id)
+    const populatedMessage = await Message.findById(
+      message._id
+    )
       .populate("sender", "fullName profilePic")
       .populate("receiver", "fullName profilePic");
 
+    // =================================================
+    // ADD SOCKET IDs
+    // =================================================
+
+    const finalMessage = {
+      ...populatedMessage.toObject(),
+
+      senderId: String(req.userId),
+
+      receiverId: String(receiverId),
+    };
+
+    console.log("📨 MESSAGE CREATED:", finalMessage);
+
+    // =================================================
+    // RESPONSE
+    // =================================================
+
     res.status(201).json({
-      message: populatedMessage,
+      message: finalMessage,
     });
 
   } catch (error) {
@@ -148,25 +164,6 @@ const markMessageSeen = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    /*
-      userId = the person whose chat we opened
-
-      Example:
-
-      Current user = Sunakshi
-      userId = Rahul
-
-      Find:
-
-      sender = Rahul
-      receiver = Sunakshi
-      seen = false
-
-      Then change:
-
-      seen = true
-    */
-
     const result = await Message.updateMany(
       {
         sender: userId,
@@ -203,16 +200,6 @@ const getUnreadCount = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    /*
-      userId = other person's ID
-
-      Find messages:
-
-      sender = other user
-      receiver = current user
-      seen = false
-    */
-
     const count = await Message.countDocuments({
       sender: userId,
       receiver: req.userId,
@@ -248,11 +235,6 @@ const toggleFavourite = async (req, res) => {
         message: "Message not found",
       });
     }
-
-    /*
-      false → true
-      true  → false
-    */
 
     message.isFavourite = !message.isFavourite;
 
@@ -293,7 +275,6 @@ const getFavouriteMessages = async (req, res) => {
           receiver: req.userId,
         },
       ],
-
       isFavourite: true,
     })
       .sort({ createdAt: -1 })
@@ -328,8 +309,10 @@ const deletMessage = async (req, res) => {
       });
     }
 
-    // Only message owner can delete
-    if (message.sender.toString() !== req.userId.toString()) {
+    if (
+      message.sender.toString() !==
+      req.userId.toString()
+    ) {
       return res.status(403).json({
         message: "You can only delete your own message",
       });
@@ -375,8 +358,10 @@ const updateMessage = async (req, res) => {
       });
     }
 
-    // Only sender can update message
-    if (message.sender.toString() !== req.userId.toString()) {
+    if (
+      message.sender.toString() !==
+      req.userId.toString()
+    ) {
       return res.status(403).json({
         message: "You can only update your own message",
       });

@@ -1,17 +1,26 @@
 import { io } from "socket.io-client";
 
-const socket = io(
-  import.meta.env.VITE_SOCKET_URL,
-  {
-    transports: ["polling", "websocket"],
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
-    reconnection: true,
+console.log("🔗 SOCKET URL:", SOCKET_URL);
 
-    reconnectionAttempts: Infinity,
+const socket = io(SOCKET_URL, {
+  transports: ["websocket", "polling"],
 
-    reconnectionDelay: 1000,
-  }
-);
+  reconnection: true,
+
+  reconnectionAttempts: Infinity,
+
+  reconnectionDelay: 1000,
+
+  reconnectionDelayMax: 5000,
+
+  timeout: 20000,
+});
+
+// ==========================================
+// SOCKET CONNECTED
+// ==========================================
 
 socket.on("connect", () => {
   console.log(
@@ -20,6 +29,10 @@ socket.on("connect", () => {
   );
 });
 
+// ==========================================
+// SOCKET DISCONNECTED
+// ==========================================
+
 socket.on("disconnect", (reason) => {
   console.log(
     "❌ SOCKET DISCONNECTED:",
@@ -27,10 +40,58 @@ socket.on("disconnect", (reason) => {
   );
 });
 
+// ==========================================
+// SOCKET ERROR
+// ==========================================
+
 socket.on("connect_error", (error) => {
   console.log(
     "❌ SOCKET CONNECTION ERROR:",
     error.message
+  );
+});
+
+// ==========================================
+// RECONNECT ATTEMPT
+// ==========================================
+
+socket.io.on("reconnect_attempt", (attempt) => {
+  console.log(
+    "🔄 SOCKET RECONNECT ATTEMPT:",
+    attempt
+  );
+});
+
+// ==========================================
+// RECONNECTED
+// ==========================================
+
+socket.io.on("reconnect", (attempt) => {
+  console.log(
+    "🟢 SOCKET RECONNECTED:",
+    attempt,
+    socket.id
+  );
+});
+
+// ==========================================
+// RECONNECT ERROR
+// ==========================================
+
+socket.io.on("reconnect_error", (error) => {
+  console.log(
+    "❌ SOCKET RECONNECT ERROR:",
+    error.message
+  );
+});
+
+// ==========================================
+// RECONNECT FAILED
+// ==========================================
+
+socket.io.on("reconnect_failed", () => {
+  console.log(
+    "❌ SOCKET RECONNECT FAILED"
   );
 });
 
