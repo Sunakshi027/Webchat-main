@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
-import { loginUser,registerUser } from "../api/authapi";
+import { loginUser, registerUser } from "../api/authapi";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -13,125 +12,136 @@ const Login = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
   } = useForm();
 
-  
   const onSubmit = async (data) => {
-  try {
-    let response;
+    try {
+      let response;
 
-    if (isSignUp) {
-      response = await registerUser(data);
-    } else {
-      response = await loginUser(data);
+      if (isSignUp) {
+        response = await registerUser(data);
+      } else {
+        response = await loginUser(data);
+      }
+
+      console.log("LOGIN RESPONSE:", response);
+      console.log("TOKEN:", response?.token);
+
+      // Check token
+      if (!response?.token) {
+        console.log("TOKEN NOT FOUND IN RESPONSE");
+        return;
+      }
+
+      // Save token
+      localStorage.setItem("token", response.token);
+
+      console.log(
+        "SAVED TOKEN:",
+        localStorage.getItem("token")
+      );
+
+      navigate("/");
+    } catch (error) {
+      console.log(
+        "LOGIN/REGISTER ERROR:",
+        error.response?.data || error.message
+      );
     }
-
-    localStorage.setItem(
-      "token",
-      response.token
-    );
-
-    navigate("/");
-  } catch (error) {
-    console.log(error.response?.data);
-  }
-};
+  };
 
   return (
-    <div className="
-      min-h-screen
-      flex
-      items-center
-      justify-center
-      bg-gray-100
-      px-5
-      py-8
-    ">
-
-      <div className="
-        w-full
-        max-w-md
-        bg-white
-        rounded-2xl
-        border
-        border-gray-200
-        shadow-lg
-        p-7
-        sm:p-8
-        transition-all
-        duration-300
-        hover:shadow-xl
-      ">
-
-        {/* Logo / Icon */}
-        <div className="
-          flex
-          justify-center
-          mb-5
-        ">
-          <div className="
-            w-14
-            h-14
-            rounded-full
-            bg-blue-50
-            flex
-            items-center
-            justify-center
-            transition-all
-            duration-300
-            hover:scale-105
-            hover:bg-blue-100
-          ">
-            <span className="text-2xl">
-              💬
-            </span>
+    <div
+      className="
+        min-h-screen
+        flex
+        items-center
+        justify-center
+        bg-gray-100
+        px-5
+        py-8
+      "
+    >
+      <div
+        className="
+          w-full
+          max-w-md
+          bg-white
+          rounded-2xl
+          border
+          border-gray-200
+          shadow-lg
+          p-7
+          sm:p-8
+          transition-all
+          duration-300
+          hover:shadow-xl
+        "
+      >
+        {/* Logo */}
+        <div className="flex justify-center mb-5">
+          <div
+            className="
+              w-14
+              h-14
+              rounded-full
+              bg-blue-50
+              flex
+              items-center
+              justify-center
+              transition-all
+              duration-300
+              hover:scale-105
+              hover:bg-blue-100
+            "
+          >
+            <span className="text-2xl">💬</span>
           </div>
         </div>
 
-
         {/* Heading */}
         <div className="text-center mb-7">
-
-          <h2 className="
-            text-2xl
-            font-semibold
-            text-gray-800
-          ">
+          <h2
+            className="
+              text-2xl
+              font-semibold
+              text-gray-800
+            "
+          >
             {isSignUp ? "Create Account" : "Welcome Back"}
           </h2>
 
-          <p className="
-            text-sm
-            text-gray-500
-            mt-2
-          ">
+          <p
+            className="
+              text-sm
+              text-gray-500
+              mt-2
+            "
+          >
             {isSignUp
               ? "Create your account to start chatting"
-              : "Login to continue to WebChat"
-            }
+              : "Login to continue to WebChat"}
           </p>
-
         </div>
-
 
         {/* Form */}
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4"
         >
-
           {/* Full Name */}
           {isSignUp && (
             <div>
-
-              <label className="
-                block
-                text-sm
-                font-medium
-                text-gray-700
-                mb-1.5
-              ">
+              <label
+                className="
+                  block
+                  text-sm
+                  font-medium
+                  text-gray-700
+                  mb-1.5
+                "
+              >
                 Full Name
               </label>
 
@@ -139,7 +149,7 @@ const Login = () => {
                 type="text"
                 placeholder="Enter your full name"
                 {...register("fullName", {
-                  required: "Full name is required"
+                  required: "Full name is required",
                 })}
                 className="
                   w-full
@@ -167,21 +177,20 @@ const Login = () => {
                   {errors.fullName.message}
                 </p>
               )}
-
             </div>
           )}
 
-
           {/* Email */}
           <div>
-
-            <label className="
-              block
-              text-sm
-              font-medium
-              text-gray-700
-              mb-1.5
-            ">
+            <label
+              className="
+                block
+                text-sm
+                font-medium
+                text-gray-700
+                mb-1.5
+              "
+            >
               Email
             </label>
 
@@ -189,7 +198,7 @@ const Login = () => {
               type="email"
               placeholder="Enter your email"
               {...register("email", {
-                required: "Email is required"
+                required: "Email is required",
               })}
               className="
                 w-full
@@ -217,20 +226,19 @@ const Login = () => {
                 {errors.email.message}
               </p>
             )}
-
           </div>
-
 
           {/* Password */}
           <div>
-
-            <label className="
-              block
-              text-sm
-              font-medium
-              text-gray-700
-              mb-1.5
-            ">
+            <label
+              className="
+                block
+                text-sm
+                font-medium
+                text-gray-700
+                mb-1.5
+              "
+            >
               Password
             </label>
 
@@ -238,7 +246,7 @@ const Login = () => {
               type="password"
               placeholder="Enter your password"
               {...register("password", {
-                required: "Password is required"
+                required: "Password is required",
               })}
               className="
                 w-full
@@ -266,9 +274,7 @@ const Login = () => {
                 {errors.password.message}
               </p>
             )}
-
           </div>
-
 
           {/* Submit */}
           <button
@@ -294,25 +300,23 @@ const Login = () => {
           >
             {isSignUp ? "Create Account" : "Login"}
           </button>
-
         </form>
 
-
         {/* Switch Login / Signup */}
-        <div className="
-          flex
-          items-center
-          justify-center
-          gap-1
-          mt-6
-          text-sm
-        ">
-
+        <div
+          className="
+            flex
+            items-center
+            justify-center
+            gap-1
+            mt-6
+            text-sm
+          "
+        >
           <span className="text-gray-500">
             {isSignUp
               ? "Already have an account?"
-              : "Don't have an account?"
-            }
+              : "Don't have an account?"}
           </span>
 
           <button
@@ -329,14 +333,10 @@ const Login = () => {
           >
             {isSignUp ? "Login" : "Sign Up"}
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 };
 
 export default Login;
-

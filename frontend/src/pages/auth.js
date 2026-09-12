@@ -1,4 +1,4 @@
 
-import API from "axios";
+/*import API from "axios";
 
-export const authCheck = () => API.get("/check");
+export const authCheck = () => API.get("/check");*/

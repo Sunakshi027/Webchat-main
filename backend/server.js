@@ -5,9 +5,11 @@ const dotenv = require("dotenv");
 const { Server } = require("socket.io");
 
 const connectDB = require("./config/connectDB");
+
 const authRoutes = require("./Routes/authroute");
 const userRoutes = require("./Routes/userRoute");
 const messageRoutes = require("./Routes/messageroute");
+
 const chatSocket = require("./socket/chatSocket");
 
 dotenv.config();
@@ -17,27 +19,33 @@ connectDB();
 
 const app = express();
 
-// Create HTTP server
+// Allowed frontend URLs
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://webchat-main-1.onrender.com",
+];
+
+// HTTP server
 const server = http.createServer(app);
+
+// CORS
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 
 // Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: "https://webchat-main-1.onrender.com",
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   },
 });
 
-// CORS
-app.use(
-  cors({
-    origin: "https://webchat-main-1.onrender.com",
-    credentials: true,
-  })
-);
-
-// Middleware
+// Body parser
 app.use(express.json());
 
 app.use(
@@ -48,22 +56,20 @@ app.use(
 
 // Test route
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     message: "WebChat backend is running",
   });
 });
 
-// API Routes
+// API routes
 app.use("/api/auth", authRoutes);
-
 app.use("/api/users", userRoutes);
-
 app.use("/api/messages", messageRoutes);
 
-// Socket connection
+// Socket
 chatSocket(io);
 
-// Server Port
+// Port
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {

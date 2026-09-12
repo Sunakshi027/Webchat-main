@@ -14,6 +14,14 @@ const Rightsidebar = ({
     return null;
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+
+    console.log("TOKEN AFTER LOGOUT:", localStorage.getItem("token"));
+
+    navigate("/login");
+  };
+
   return (
     <div className="w-full h-full bg-white flex flex-col">
       {/* ================= HEADER ================= */}
@@ -178,9 +186,7 @@ const Rightsidebar = ({
           {imagesDummyData.map((url, index) => (
             <div
               key={index}
-              onClick={() =>
-                window.open(url, "_blank")
-              }
+              onClick={() => window.open(url, "_blank")}
               className="
                 aspect-square
                 rounded-lg
@@ -225,10 +231,7 @@ const Rightsidebar = ({
       >
         <button
           type="button"
-          onClick={() => {
-            localStorage.removeItem("token");
-            navigate("/login");
-          }}
+          onClick={handleLogout}
           className="
             w-full
             py-2.5

@@ -5,7 +5,6 @@ import Chat from "../compoments/chat";
 import Rightsidebar from "../compoments/rightsidebar";
 
 import { useNavigate } from "react-router-dom";
-import { authCheck } from "./auth";
 
 const Home = () => {
   const [selectedUser, setSelectedUser] = useState(null);
@@ -14,12 +13,14 @@ const Home = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    authCheck()
-      .then(() => console.log("User authenticated"))
-      .catch(() => {
-        localStorage.removeItem("token");
-        navigate("/");
-      });
+    const token = localStorage.getItem("token");
+
+    console.log("HOME TOKEN:", token);
+
+    // Only redirect if token does not exist
+    if (!token) {
+      navigate("/login");
+    }
   }, [navigate]);
 
   return (
@@ -77,7 +78,7 @@ const Home = () => {
           />
         </div>
 
-        {/* RIGHT SIDEBAR OVERLAY */}
+        {/* RIGHT SIDEBAR */}
         {selectedUser && (
           <div
             className={`
