@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
+
 import Sidebar from "../compoments/sidebar";
 import Chat from "../compoments/chat";
 import Rightsidebar from "../compoments/rightsidebar";
+
 import { useNavigate } from "react-router-dom";
 import { authCheck } from "./auth";
 
 const Home = () => {
   const [selectedUser, setSelectedUser] = useState(null);
-<<<<<<< HEAD
-  const [showRightSidebar, setShowRightSidebar] = useState(true);
-=======
   const [showRightSidebar, setShowRightSidebar] = useState(false);
->>>>>>> 1f2d71e (Initial Webchat project)
 
   const navigate = useNavigate();
 
@@ -33,16 +31,13 @@ const Home = () => {
           h-screen
           bg-white
           overflow-hidden
-
           md:m-3
           md:h-[calc(100vh-24px)]
           md:rounded-2xl
           md:border
           md:border-gray-200
           md:shadow-lg
-
           xl:max-w-[1500px]
-
           grid
           grid-cols-1
           md:grid-cols-[300px_1fr]
@@ -75,19 +70,11 @@ const Home = () => {
             ${selectedUser ? "block" : "hidden md:block"}
           `}
         >
-<<<<<<< HEAD
-         <Chat
-  selectedUser={selectedUser}
-  setSelectedUser={setSelectedUser}
-  setShowRightSidebar={setShowRightSidebar}
-/>
-=======
           <Chat
             selectedUser={selectedUser}
             setSelectedUser={setSelectedUser}
             setShowRightSidebar={setShowRightSidebar}
           />
->>>>>>> 1f2d71e (Initial Webchat project)
         </div>
 
         {/* RIGHT SIDEBAR OVERLAY */}
@@ -98,23 +85,18 @@ const Home = () => {
               top-0
               right-0
               h-full
-
               w-full
               sm:w-[380px]
               md:w-[400px]
-
               bg-white
               border-l
               border-gray-200
               shadow-2xl
-
               z-50
-
               transform
               transition-transform
               duration-300
               ease-out
-
               ${
                 showRightSidebar
                   ? "translate-x-0"
@@ -122,18 +104,10 @@ const Home = () => {
               }
             `}
           >
-<<<<<<< HEAD
-           {showRightSidebar && (
-  <Rightsidebar
-    selectedUser={selectedUser}
-  />
-)}
-=======
             <Rightsidebar
               selectedUser={selectedUser}
               setShowRightSidebar={setShowRightSidebar}
             />
->>>>>>> 1f2d71e (Initial Webchat project)
           </div>
         )}
       </div>

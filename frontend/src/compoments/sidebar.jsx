@@ -1,15 +1,7 @@
-<<<<<<< HEAD
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import Rightsidebar from './rightsidebar';
-import logo from "../assets/image.png";
-import menu from '../assets/menu.png';
-=======
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import menu from "../assets/setting.jpg";
->>>>>>> 1f2d71e (Initial Webchat project)
 import search from "../assets/searchbar11.webp";
 import avtar from "../assets/avrar.jpg";
 
@@ -34,26 +26,14 @@ const Sidebar = ({
   const [users, setUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
 
-  const [latestTimes, setLatestTimes] =
-    useState({});
+  const [latestTimes, setLatestTimes] = useState({});
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [favouriteUserIds, setFavouriteUserIds] = useState([]);
 
-  const [unreadCounts, setUnreadCounts] =
-    useState({});
-
-  const [favouriteUserIds, setFavouriteUserIds] =
-    useState([]);
-
-  const [activeTab, setActiveTab] =
-    useState("all");
-
-  const [searchTerm, setSearchTerm] =
-    useState("");
-
-  const [showSettings, setShowSettings] =
-    useState(false);
-
-  const [loading, setLoading] =
-    useState(true);
+  const [activeTab, setActiveTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // =====================================================
   // LOAD USERS
@@ -75,8 +55,7 @@ const Sidebar = ({
     } catch (error) {
       console.log(
         "Get users error:",
-        error.response?.data ||
-          error.message
+        error.response?.data || error.message
       );
 
       return [];
@@ -87,20 +66,16 @@ const Sidebar = ({
   // GET LATEST MESSAGE TIME FOR EVERY USER
   // =====================================================
 
-  const loadLatestMessageTimes = async (
-    userList
-  ) => {
+  const loadLatestMessageTimes = async (userList) => {
     try {
       const times = {};
 
       await Promise.all(
         userList.map(async (user) => {
           try {
-            const userId =
-              user._id || user.id;
+            const userId = user._id || user.id;
 
-            const response =
-              await getMessages(userId);
+            const response = await getMessages(userId);
 
             const messages =
               response?.messages ||
@@ -116,34 +91,23 @@ const Sidebar = ({
               return;
             }
 
-            const validTimes =
-              messages
-                .map((message) => {
-                  if (
-                    !message.createdAt
-                  ) {
-                    return 0;
-                  }
+            const validTimes = messages
+              .map((message) => {
+                if (!message.createdAt) {
+                  return 0;
+                }
 
-                  return new Date(
-                    message.createdAt
-                  ).getTime();
-                })
-                .filter(
-                  (time) =>
-                    !isNaN(time)
-                );
+                return new Date(
+                  message.createdAt
+                ).getTime();
+              })
+              .filter((time) => !isNaN(time));
 
-            times[userId] =
-              validTimes.length
-                ? Math.max(
-                    ...validTimes
-                  )
-                : 0;
+            times[userId] = validTimes.length
+              ? Math.max(...validTimes)
+              : 0;
           } catch (error) {
-            times[
-              user._id || user.id
-            ] = 0;
+            times[user._id || user.id] = 0;
           }
         })
       );
@@ -171,12 +135,8 @@ const Sidebar = ({
   ) => {
     const sorted = [...userList].sort(
       (a, b) => {
-
-        const aId =
-          a._id || a.id;
-
-        const bId =
-          b._id || b.id;
+        const aId = a._id || a.id;
+        const bId = b._id || b.id;
 
         const aTime =
           Number(times[aId]) || 0;
@@ -195,24 +155,18 @@ const Sidebar = ({
   // LOAD UNREAD COUNTS
   // =====================================================
 
-  const loadUnreadCounts = async (
-    userList
-  ) => {
+  const loadUnreadCounts = async (userList) => {
     try {
       const counts = {};
 
       await Promise.all(
         userList.map(async (user) => {
-
           const userId =
             user._id || user.id;
 
           try {
-
             const response =
-              await getUnreadCount(
-                userId
-              );
+              await getUnreadCount(userId);
 
             const count =
               response?.unreadCount ??
@@ -223,11 +177,8 @@ const Sidebar = ({
 
             counts[userId] =
               Number(count) || 0;
-
           } catch (error) {
-
             counts[userId] = 0;
-
           }
         })
       );
@@ -235,9 +186,7 @@ const Sidebar = ({
       setUnreadCounts(counts);
 
       return counts;
-
     } catch (error) {
-
       console.log(
         "Unread error:",
         error
@@ -251,148 +200,119 @@ const Sidebar = ({
   // LOAD FAVOURITE USERS
   // =====================================================
 
-  const loadFavouriteUsers =
-    async () => {
+  const loadFavouriteUsers = async () => {
+    try {
+      const response =
+        await getFavouriteMessages();
 
-      try {
+      const messages =
+        response?.messages ||
+        response?.data?.messages ||
+        response?.data ||
+        response ||
+        [];
 
-        const response =
-          await getFavouriteMessages();
+      const currentResponse =
+        await getCurrentUser();
 
-        const messages =
-          response?.messages ||
-          response?.data?.messages ||
-          response?.data ||
-          response ||
-          [];
+      const currentUser =
+        currentResponse?.user ||
+        currentResponse;
 
-        const currentResponse =
-          await getCurrentUser();
+      const currentUserId =
+        currentUser?._id ||
+        currentUser?.id;
 
-        const currentUser =
-          currentResponse?.user ||
-          currentResponse;
+      const ids = [];
 
-        const currentUserId =
-          currentUser?._id ||
-          currentUser?.id;
+      messages.forEach((message) => {
+        const senderId =
+          message.senderId?._id ||
+          message.senderId ||
+          message.sender?._id ||
+          message.sender ||
+          "";
 
-        const ids = [];
+        const receiverId =
+          message.receiverId?._id ||
+          message.receiverId ||
+          message.receiver?._id ||
+          message.receiver ||
+          "";
 
-        messages.forEach(
-          (message) => {
+        let otherUserId = "";
 
-            const senderId =
-              message.senderId?._id ||
-              message.senderId ||
-              message.sender?._id ||
-              message.sender ||
-              "";
+        if (
+          String(senderId) ===
+          String(currentUserId)
+        ) {
+          otherUserId = receiverId;
+        } else {
+          otherUserId = senderId;
+        }
 
-            const receiverId =
-              message.receiverId?._id ||
-              message.receiverId ||
-              message.receiver?._id ||
-              message.receiver ||
-              "";
+        if (otherUserId) {
+          ids.push(String(otherUserId));
+        }
+      });
 
-            let otherUserId = "";
-
-            if (
-              String(senderId) ===
-              String(currentUserId)
-            ) {
-
-              otherUserId =
-                receiverId;
-
-            } else {
-
-              otherUserId =
-                senderId;
-
-            }
-
-            if (otherUserId) {
-
-              ids.push(
-                String(otherUserId)
-              );
-
-            }
-          }
-        );
-
-        setFavouriteUserIds([
-          ...new Set(ids),
-        ]);
-
-      } catch (error) {
-
-        console.log(
-          "Favourite error:",
-          error.response?.data ||
-            error.message
-        );
-
-      }
-    };
+      setFavouriteUserIds([
+        ...new Set(ids),
+      ]);
+    } catch (error) {
+      console.log(
+        "Favourite error:",
+        error.response?.data ||
+          error.message
+      );
+    }
+  };
 
   // =====================================================
   // LOAD EVERYTHING
   // =====================================================
 
-  const loadSidebarData =
-    async () => {
+  const loadSidebarData = async () => {
+    try {
+      setLoading(true);
 
-      try {
+      const userList =
+        await loadUsers();
 
-        setLoading(true);
-
-        const userList =
-          await loadUsers();
-
-        const times =
-          await loadLatestMessageTimes(
-            userList
-          );
-
-        await loadUnreadCounts(
+      const times =
+        await loadLatestMessageTimes(
           userList
         );
 
-        await loadFavouriteUsers();
+      await loadUnreadCounts(
+        userList
+      );
 
-        const sortedUsers =
-          sortUsersByLatestMessage(
-            userList,
-            times
-          );
+      await loadFavouriteUsers();
 
-        setUsers(sortedUsers);
-
-      } catch (error) {
-
-        console.log(
-          "Sidebar error:",
-          error
+      const sortedUsers =
+        sortUsersByLatestMessage(
+          userList,
+          times
         );
 
-      } finally {
-
-        setLoading(false);
-
-      }
-    };
+      setUsers(sortedUsers);
+    } catch (error) {
+      console.log(
+        "Sidebar error:",
+        error
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // =====================================================
   // INITIAL LOAD
   // =====================================================
 
   useEffect(() => {
-
     loadSidebarData();
-
   }, []);
 
   // =====================================================
@@ -400,57 +320,47 @@ const Sidebar = ({
   // =====================================================
 
   useEffect(() => {
-
-    const searchUsersData =
-      async () => {
-
-        try {
-
-          if (!searchTerm.trim()) {
-
-            const sorted =
-              sortUsersByLatestMessage(
-                allUsers,
-                latestTimes
-              );
-
-            setUsers(sorted);
-
-            return;
-          }
-
-          const response =
-            await searchUser(
-              searchTerm
-            );
-
-          const result =
-            response?.users ||
-            response?.data ||
-            response ||
-            [];
-
+    const searchUsersData = async () => {
+      try {
+        if (!searchTerm.trim()) {
           const sorted =
             sortUsersByLatestMessage(
-              result,
+              allUsers,
               latestTimes
             );
 
           setUsers(sorted);
+          return;
+        }
 
-        } catch (error) {
-
-          console.log(
-            "Search error:",
-            error.response?.data ||
-              error.message
+        const response =
+          await searchUser(
+            searchTerm
           );
 
-        }
-      };
+        const result =
+          response?.users ||
+          response?.data ||
+          response ||
+          [];
+
+        const sorted =
+          sortUsersByLatestMessage(
+            result,
+            latestTimes
+          );
+
+        setUsers(sorted);
+      } catch (error) {
+        console.log(
+          "Search error:",
+          error.response?.data ||
+            error.message
+        );
+      }
+    };
 
     searchUsersData();
-
   }, [
     searchTerm,
     allUsers,
@@ -464,9 +374,7 @@ const Sidebar = ({
   const refreshChatOrder = async (
     userId
   ) => {
-
     try {
-
       const response =
         await getMessages(userId);
 
@@ -482,10 +390,8 @@ const Sidebar = ({
         Array.isArray(messages) &&
         messages.length
       ) {
-
         messages.forEach(
           (message) => {
-
             if (!message.createdAt) {
               return;
             }
@@ -501,26 +407,19 @@ const Sidebar = ({
             ) {
               latestTime = time;
             }
-
           }
         );
       }
 
-      setLatestTimes(
-        (prev) => ({
-          ...prev,
-          [userId]:
-            latestTime,
-        })
-      );
-
+      setLatestTimes((prev) => ({
+        ...prev,
+        [userId]: latestTime,
+      }));
     } catch (error) {
-
       console.log(
         "Refresh chat order error:",
         error
       );
-
     }
   };
 
@@ -528,102 +427,81 @@ const Sidebar = ({
   // SELECT USER
   // =====================================================
 
-  const handleSelectUser =
-    async (user) => {
+  const handleSelectUser = async (
+    user
+  ) => {
+    setSelectedUser(user);
 
-      setSelectedUser(user);
+    const userId =
+      user._id || user.id;
 
-      const userId =
-        user._id || user.id;
+    await refreshChatOrder(
+      userId
+    );
 
-      await refreshChatOrder(
-        userId
-      );
+    const userList =
+      allUsers.length
+        ? allUsers
+        : await loadUsers();
 
-      /*
-        Reload users after updating
-        latest message time.
-      */
+    try {
+      const response =
+        await getMessages(userId);
 
-      const userList =
-        allUsers.length
-          ? allUsers
-          : await loadUsers();
+      const messages =
+        response?.messages ||
+        response?.data ||
+        response ||
+        [];
+
+      let latest = 0;
+
+      if (Array.isArray(messages)) {
+        messages.forEach(
+          (message) => {
+            if (
+              message.createdAt
+            ) {
+              const time =
+                new Date(
+                  message.createdAt
+                ).getTime();
+
+              if (
+                !isNaN(time) &&
+                time > latest
+              ) {
+                latest = time;
+              }
+            }
+          }
+        );
+      }
 
       const updatedTimes = {
         ...latestTimes,
+        [userId]: latest,
       };
 
-      /*
-        Get messages again for selected
-        user so the newest timestamp
-        is available immediately.
-      */
+      setLatestTimes(
+        updatedTimes
+      );
 
-      try {
-
-        const response =
-          await getMessages(userId);
-
-        const messages =
-          response?.messages ||
-          response?.data ||
-          response ||
-          [];
-
-        let latest = 0;
-
-        if (
-          Array.isArray(messages)
-        ) {
-
-          messages.forEach(
-            (message) => {
-
-              if (
-                message.createdAt
-              ) {
-
-                const time =
-                  new Date(
-                    message.createdAt
-                  ).getTime();
-
-                if (
-                  !isNaN(time) &&
-                  time > latest
-                ) {
-                  latest = time;
-                }
-
-              }
-
-            }
-          );
-        }
-
-        updatedTimes[userId] =
-          latest;
-
-        setLatestTimes(
+      const sorted =
+        sortUsersByLatestMessage(
+          userList,
           updatedTimes
         );
 
-        const sorted =
-          sortUsersByLatestMessage(
-            userList,
-            updatedTimes
-          );
-
-        setAllUsers(sorted);
-        setUsers(sorted);
-
-      } catch (error) {
-
-        console.log(error);
-
-      }
-    };
+      setAllUsers(sorted);
+      setUsers(sorted);
+    } catch (error) {
+      console.log(
+        "Select user error:",
+        error
+      );
+    }
+  };
 
   // =====================================================
   // FILTER USERS
@@ -631,7 +509,6 @@ const Sidebar = ({
 
   const filteredUsers =
     users.filter((user) => {
-
       const userId = String(
         user._id || user.id
       );
@@ -686,7 +563,6 @@ const Sidebar = ({
   // =====================================================
 
   return (
-
     <div
       className="
         h-full
@@ -697,20 +573,6 @@ const Sidebar = ({
         overflow-hidden
       "
     >
-
-<<<<<<< HEAD
-        {/* Logo */}
-       <div className=''>
-         <img
-          src={logo}
-          alt="logo"
-          className="
-            w-23
-            h-auto
-            object-contain
-            transition-transform duration-300
-            hover:scale-105
-=======
       {/* =================================================
           HEADER
       ================================================= */}
@@ -724,41 +586,16 @@ const Sidebar = ({
           border-gray-100
         "
       >
-
         <div
           className="
             flex
             items-center
             justify-between
->>>>>>> 1f2d71e (Initial Webchat project)
           "
         >
+          {/* TITLE */}
 
-<<<<<<< HEAD
-        <h4 className='text-[20px] font-bold text-center text-gray-600'>Chats</h4>
-       </div>
-         
-        {/* Menu */}
-        <div className="relative group">
-
-          <button className="
-            w-12 h-12
-            rounded-full
-            flex items-center justify-center
-            bg-gray-100
-            hover:bg-gray-200
-            transition-all duration-300
-            active:scale-90
-          ">
-            <img
-              src={menu}
-              alt="menu"
-              className="w-8 h-8 object-contain"
-            />
-          </button>
-=======
           <div>
-
             <p
               className="
                 text-[10px]
@@ -770,7 +607,6 @@ const Sidebar = ({
             >
               Messages
             </p>
->>>>>>> 1f2d71e (Initial Webchat project)
 
             <h2
               className="
@@ -781,13 +617,11 @@ const Sidebar = ({
             >
               Chats
             </h2>
-
           </div>
 
           {/* SETTINGS */}
 
           <div className="relative">
-
             <button
               type="button"
               onClick={() =>
@@ -809,7 +643,6 @@ const Sidebar = ({
                 transition
               "
             >
-
               <img
                 src={menu}
                 alt="settings"
@@ -821,11 +654,9 @@ const Sidebar = ({
                   transition
                 "
               />
-
             </button>
 
             {showSettings && (
-
               <div
                 className="
                   absolute
@@ -841,19 +672,15 @@ const Sidebar = ({
                   z-50
                 "
               >
+                {/* EDIT PROFILE */}
 
                 <button
                   type="button"
                   onClick={() => {
-
-                    setShowSettings(
-                      false
-                    );
-
+                    setShowSettings(false);
                     navigate(
                       "/profile"
                     );
-
                   }}
                   className="
                     w-full
@@ -876,10 +703,11 @@ const Sidebar = ({
                   "
                 />
 
+                {/* LOGOUT */}
+
                 <button
                   type="button"
                   onClick={() => {
-
                     localStorage.removeItem(
                       "token"
                     );
@@ -887,7 +715,6 @@ const Sidebar = ({
                     navigate(
                       "/login"
                     );
-
                   }}
                   className="
                     w-full
@@ -902,19 +729,14 @@ const Sidebar = ({
                 >
                   Log out
                 </button>
-
               </div>
-
             )}
-
           </div>
-
         </div>
 
         {/* SEARCH */}
 
         <div className="mt-5">
-
           <div
             className="
               flex
@@ -931,7 +753,6 @@ const Sidebar = ({
               transition
             "
           >
-
             <img
               src={search}
               alt="search"
@@ -960,7 +781,6 @@ const Sidebar = ({
             />
 
             {searchTerm && (
-
               <button
                 type="button"
                 onClick={() =>
@@ -973,13 +793,9 @@ const Sidebar = ({
               >
                 ×
               </button>
-
             )}
-
           </div>
-
         </div>
-
       </div>
 
       {/* =================================================
@@ -994,7 +810,6 @@ const Sidebar = ({
           border-gray-100
         "
       >
-
         <div
           className="
             flex
@@ -1004,9 +819,7 @@ const Sidebar = ({
             rounded-xl
           "
         >
-
           {tabs.map((tab) => (
-
             <button
               key={tab.id}
               type="button"
@@ -1033,11 +846,8 @@ const Sidebar = ({
             >
               {tab.label}
             </button>
-
           ))}
-
         </div>
-
       </div>
 
       {/* =================================================
@@ -1052,23 +862,9 @@ const Sidebar = ({
           py-3
         "
       >
+        {/* LOADING */}
 
-<<<<<<< HEAD
-        <p className="
-          px-2
-          py-2
-          text-xs
-          font-semibold
-          uppercase
-          tracking-wider
-          text-gray-400
-        ">
-          Users
-        </p>
-=======
         {loading ? (
->>>>>>> 1f2d71e (Initial Webchat project)
-
           <div
             className="
               flex
@@ -1080,14 +876,10 @@ const Sidebar = ({
           >
             Loading chats...
           </div>
-
         ) : filteredUsers.length ===
           0 ? (
+          /* NO USERS */
 
-<<<<<<< HEAD
-            const isSelected = selectedUser?.id === user.id;
-            const isOnline = index < 4;
-=======
           <div
             className="
               flex
@@ -1097,8 +889,6 @@ const Sidebar = ({
               mt-20
             "
           >
->>>>>>> 1f2d71e (Initial Webchat project)
-
             <div
               className="
                 w-14
@@ -1129,10 +919,9 @@ const Sidebar = ({
             >
               No chats found
             </p>
-
           </div>
-
         ) : (
+          /* USERS */
 
           <div
             className="
@@ -1141,10 +930,8 @@ const Sidebar = ({
               gap-1
             "
           >
-
             {filteredUsers.map(
               (user, index) => {
-
                 const userId =
                   user._id ||
                   user.id;
@@ -1171,20 +958,17 @@ const Sidebar = ({
                     String(userId)
                   );
 
-                /*
-                  Display latest message
-                  time in sidebar.
-                */
+                // LATEST MESSAGE TIME
 
                 const latestTime =
                   latestTimes[
                     userId
                   ];
 
-                let displayTime = "";
+                let displayTime =
+                  "";
 
                 if (latestTime) {
-
                   const date =
                     new Date(
                       latestTime
@@ -1215,15 +999,12 @@ const Sidebar = ({
                         );
                 }
 
-                /*
-                  Demo online status.
-                */
+                // DEMO ONLINE STATUS
 
                 const isOnline =
                   index < 4;
 
                 return (
-
                   <div
                     key={
                       userId ||
@@ -1235,12 +1016,6 @@ const Sidebar = ({
                       )
                     }
                     className={`
-<<<<<<< HEAD
-                      w-14
-                      h-14
-                      rounded-full
-                      object-cover
-=======
                       relative
                       flex
                       items-center
@@ -1249,104 +1024,18 @@ const Sidebar = ({
                       py-3
                       rounded-2xl
                       cursor-pointer
->>>>>>> 1f2d71e (Initial Webchat project)
                       transition-all
 
                       ${
                         isSelected
-<<<<<<< HEAD
-                          ? "ring-2 ring-blue-500 ring-offset-2"
-                          : "group-hover:scale-105"
-                      }
-                    `}
-                  />
-
-                  {/* Online Dot */}
-                  <span
-                    className={`
-                      absolute
-                      bottom-0
-                      right-0
-                      w-3
-                      h-3
-                      rounded-full
-                      border-2
-                      border-white
-
-                      ${
-                        isOnline
-                          ? "bg-green-500"
-                          : "bg-gray-400"
-                      }
-                    `}
-                  ></span>
-
-                </div>
-
-
-                {/* User Info */}
-                <div className="min-w-0 flex-1">
-
-                  <div className="flex items-center justify-between gap-2">
-
-                    <p
-                      className={`
-                        font-medium
-                        text-sm
-                        truncate
-                        transition-colors
-                        duration-300
-
-                        ${
-                          isSelected
-                            ? "text-blue-700"
-                            : "text-gray-800 group-hover:text-blue-600"
-                        }
-                      `}
-                    >
-                      {user.fullName}
-                    </p>
-
-                  <div className='flex flex-col'>
-                        <span className="
-                      text-[10px]
-                      text-gray-400
-                      flex-shrink-0
-                    ">
-                      10:30
-                    </span>
-                    <span className="text-[11px] text-gray-500 font-medium">
-  {user.unread}
-</span>
-                    </div>
-                    
-
-                  </div>
-
-
-                  <p
-                    className={`
-                      text-xs
-                      mt-1
-                      transition-colors
-                      duration-300
-
-                      ${
-                        isOnline
-                          ? "text-green-500"
-                          : "text-gray-400"
-=======
                           ? "bg-gray-100"
                           : "hover:bg-gray-50"
->>>>>>> 1f2d71e (Initial Webchat project)
                       }
                     `}
                   >
-
                     {/* ACTIVE LINE */}
 
                     {isSelected && (
-
                       <span
                         className="
                           absolute
@@ -1359,7 +1048,6 @@ const Sidebar = ({
                           rounded-r-full
                         "
                       />
-
                     )}
 
                     {/* AVATAR */}
@@ -1370,7 +1058,6 @@ const Sidebar = ({
                         flex-shrink-0
                       "
                     >
-
                       <img
                         src={
                           user.profilePic ||
@@ -1384,6 +1071,8 @@ const Sidebar = ({
                           object-cover
                         "
                       />
+
+                      {/* ONLINE DOT */}
 
                       <span
                         className={`
@@ -1403,7 +1092,6 @@ const Sidebar = ({
                           }
                         `}
                       />
-
                     </div>
 
                     {/* USER INFO */}
@@ -1414,6 +1102,7 @@ const Sidebar = ({
                         min-w-0
                       "
                     >
+                      {/* NAME + TIME */}
 
                       <div
                         className="
@@ -1423,7 +1112,6 @@ const Sidebar = ({
                           gap-2
                         "
                       >
-
                         <div
                           className="
                             flex
@@ -1432,7 +1120,6 @@ const Sidebar = ({
                             min-w-0
                           "
                         >
-
                           <p
                             className={`
                               text-sm
@@ -1448,8 +1135,9 @@ const Sidebar = ({
                             {user.fullName}
                           </p>
 
-                          {isFavourite && (
+                          {/* FAVOURITE STAR */}
 
+                          {isFavourite && (
                             <span
                               className="
                                 text-yellow-500
@@ -1458,15 +1146,12 @@ const Sidebar = ({
                             >
                               ★
                             </span>
-
                           )}
-
                         </div>
 
                         {/* TIME */}
 
                         {displayTime && (
-
                           <span
                             className={`
                               text-[10px]
@@ -1481,10 +1166,10 @@ const Sidebar = ({
                           >
                             {displayTime}
                           </span>
-
                         )}
-
                       </div>
+
+                      {/* ONLINE + UNREAD */}
 
                       <div
                         className="
@@ -1494,7 +1179,6 @@ const Sidebar = ({
                           mt-1
                         "
                       >
-
                         <p
                           className={`
                             text-xs
@@ -1511,10 +1195,9 @@ const Sidebar = ({
                             : "Offline"}
                         </p>
 
-                        {/* UNREAD */}
+                        {/* UNREAD COUNT */}
 
                         {unread > 0 && (
-
                           <span
                             className="
                               min-w-[20px]
@@ -1534,25 +1217,16 @@ const Sidebar = ({
                               ? "99+"
                               : unread}
                           </span>
-
                         )}
-
                       </div>
-
                     </div>
-
                   </div>
-
                 );
               }
             )}
-
           </div>
-
         )}
-
       </div>
-
     </div>
   );
 };

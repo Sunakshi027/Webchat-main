@@ -1,4 +1,5 @@
 import React from "react";
+
 import dummy from "../assets/avrar.jpg";
 import { imagesDummyData } from "../assests";
 import { useNavigate } from "react-router-dom";
@@ -9,15 +10,28 @@ const Rightsidebar = ({
 }) => {
   const navigate = useNavigate();
 
-  if (!selectedUser) return null;
+  if (!selectedUser) {
+    return null;
+  }
 
   return (
     <div className="w-full h-full bg-white flex flex-col">
-
       {/* ================= HEADER ================= */}
-      <div className="h-[72px] flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
 
-        {/* Close / Back button - mobile */}
+      <div
+        className="
+          h-[72px]
+          flex
+          items-center
+          gap-3
+          px-4
+          border-b
+          border-gray-200
+          shrink-0
+        "
+      >
+        {/* CLOSE BUTTON */}
+
         <button
           type="button"
           onClick={() => setShowRightSidebar(false)}
@@ -41,16 +55,25 @@ const Rightsidebar = ({
         <h2 className="text-lg font-semibold text-gray-800">
           Contact Info
         </h2>
-
       </div>
 
-
       {/* ================= PROFILE ================= */}
-      <div className="flex flex-col items-center px-5 pt-8 pb-6 border-b border-gray-200">
 
-        {/* Profile Image */}
+      <div
+        className="
+          flex
+          flex-col
+          items-center
+          px-5
+          pt-8
+          pb-6
+          border-b
+          border-gray-200
+        "
+      >
+        {/* PROFILE IMAGE */}
+
         <div className="relative group">
-
           <img
             src={selectedUser.profilePic || dummy}
             alt="profile"
@@ -69,7 +92,8 @@ const Rightsidebar = ({
             "
           />
 
-          {/* Online Status */}
+          {/* ONLINE STATUS */}
+
           <span
             className="
               absolute
@@ -83,11 +107,10 @@ const Rightsidebar = ({
               rounded-full
             "
           />
-
         </div>
 
+        {/* NAME */}
 
-        {/* Name */}
         <h1
           className="
             mt-4
@@ -98,23 +121,9 @@ const Rightsidebar = ({
         >
           {selectedUser.fullName}
         </h1>
-        {/*gmail*/}
-            <h1
-          className="
-            mt-[0px]
-            text-[18px]
-            font-semibold
-            text-gray-800
-            transition-colors duration-300
-            hover:text-blue-600
-          "
-        >
-          {selectedUser.email}
-        </h1>
 
+        {/* EMAIL */}
 
-
-        {/* Email */}
         <p
           className="
             mt-1
@@ -128,14 +137,14 @@ const Rightsidebar = ({
           {selectedUser.email}
         </p>
 
+        {/* STATUS */}
 
-        {/* Status */}
         <p className="text-xs text-green-500 font-medium mt-1">
           Active now
         </p>
 
+        {/* BIO */}
 
-        {/* Bio */}
         <p
           className="
             text-sm
@@ -148,15 +157,12 @@ const Rightsidebar = ({
         >
           {selectedUser.bio || "No bio available"}
         </p>
-
       </div>
 
-
       {/* ================= MEDIA ================= */}
+
       <div className="flex-1 px-5 py-6 overflow-y-auto">
-
         <div className="flex items-center justify-between mb-4">
-
           <h2 className="text-sm font-semibold text-gray-800">
             Shared Media
           </h2>
@@ -164,18 +170,17 @@ const Rightsidebar = ({
           <span className="text-xs text-gray-400">
             {imagesDummyData.length} files
           </span>
-
         </div>
 
+        {/* MEDIA GRID */}
 
-        {/* Media Grid */}
         <div className="grid grid-cols-2 gap-2">
-
           {imagesDummyData.map((url, index) => (
-
             <div
               key={index}
-              onClick={() => window.open(url, "_blank")}
+              onClick={() =>
+                window.open(url, "_blank")
+              }
               className="
                 aspect-square
                 rounded-lg
@@ -191,7 +196,6 @@ const Rightsidebar = ({
                 hover:shadow-md
               "
             >
-
               <img
                 src={url}
                 alt="shared media"
@@ -204,20 +208,23 @@ const Rightsidebar = ({
                   group-hover:scale-110
                 "
               />
-
             </div>
-
           ))}
-
         </div>
-
       </div>
 
-
       {/* ================= LOGOUT ================= */}
-      <div className="p-5 border-t border-gray-200 shrink-0">
 
+      <div
+        className="
+          p-5
+          border-t
+          border-gray-200
+          shrink-0
+        "
+      >
         <button
+          type="button"
           onClick={() => {
             localStorage.removeItem("token");
             navigate("/login");
@@ -240,15 +247,9 @@ const Rightsidebar = ({
             duration-300
           "
         >
-<<<<<<< HEAD
-          Logout YourSelf
-=======
           Logout Yourself
->>>>>>> 1f2d71e (Initial Webchat project)
         </button>
-
       </div>
-
     </div>
   );
 };
