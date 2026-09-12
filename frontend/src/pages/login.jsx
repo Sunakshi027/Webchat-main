@@ -1,4 +1,4 @@
-import React, { useState } from "react";
++import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
@@ -6,6 +6,7 @@ import { loginUser, registerUser } from "../api/authapi";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const navigate = useNavigate();
 
@@ -42,7 +43,24 @@ const Login = () => {
         localStorage.getItem("token")
       );
 
-      navigate("/");
+      // =========================
+      // SUCCESS MESSAGE
+      // =========================
+
+      setSuccessMessage(
+        isSignUp
+          ? "Account created successfully! 🎉"
+          : "Login successful! Welcome to WebChat 🎉"
+      );
+
+      // =========================
+      // GO TO CHAT
+      // =========================
+
+      setTimeout(() => {
+        navigate("/home");
+      }, 1200);
+
     } catch (error) {
       console.log(
         "LOGIN/REGISTER ERROR:",
@@ -61,8 +79,68 @@ const Login = () => {
         bg-gray-100
         px-5
         py-8
+        relative
       "
     >
+
+      {/* =========================
+          SUCCESS POPUP
+      ========================= */}
+
+      {successMessage && (
+        <div
+          className="
+            fixed
+            top-6
+            right-6
+            z-50
+            bg-white
+            border
+            border-green-200
+            shadow-xl
+            rounded-xl
+            px-5
+            py-4
+            flex
+            items-center
+            gap-3
+            min-w-[280px]
+            animate-[slideIn_.3s_ease-out]
+          "
+        >
+          <div
+            className="
+              w-9
+              h-9
+              rounded-full
+              bg-green-100
+              flex
+              items-center
+              justify-center
+              text-green-600
+              text-lg
+              font-bold
+            "
+          >
+            ✓
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-800">
+              Success
+            </p>
+
+            <p className="text-xs text-gray-500 mt-0.5">
+              {successMessage}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
+          LOGIN CARD
+      ========================= */}
+
       <div
         className="
           w-full
@@ -79,6 +157,7 @@ const Login = () => {
           hover:shadow-xl
         "
       >
+
         {/* Logo */}
         <div className="flex justify-center mb-5">
           <div
@@ -96,7 +175,9 @@ const Login = () => {
               hover:bg-blue-100
             "
           >
-            <span className="text-2xl">💬</span>
+            <span className="text-2xl">
+              💬
+            </span>
           </div>
         </div>
 
@@ -109,7 +190,9 @@ const Login = () => {
               text-gray-800
             "
           >
-            {isSignUp ? "Create Account" : "Welcome Back"}
+            {isSignUp
+              ? "Create Account"
+              : "Welcome Back"}
           </h2>
 
           <p
@@ -130,6 +213,7 @@ const Login = () => {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4"
         >
+
           {/* Full Name */}
           {isSignUp && (
             <div>
@@ -298,7 +382,9 @@ const Login = () => {
               duration-300
             "
           >
-            {isSignUp ? "Create Account" : "Login"}
+            {isSignUp
+              ? "Create Account"
+              : "Login"}
           </button>
         </form>
 
@@ -321,7 +407,9 @@ const Login = () => {
 
           <button
             type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() =>
+              setIsSignUp(!isSignUp)
+            }
             className="
               text-blue-600
               font-medium
@@ -331,9 +419,12 @@ const Login = () => {
               duration-200
             "
           >
-            {isSignUp ? "Login" : "Sign Up"}
+            {isSignUp
+              ? "Login"
+              : "Sign Up"}
           </button>
         </div>
+
       </div>
     </div>
   );
