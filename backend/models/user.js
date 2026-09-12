@@ -36,10 +36,6 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    // ==========================================
-    // CONTACTS
-    // ==========================================
-
     contacts: [
       {
         type: mongoose.Schema.Types.ObjectId,

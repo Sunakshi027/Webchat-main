@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
 
+import avtar from "../assets/avrar.jpg";
+
 import { useNavigate } from "react-router-dom";
 
-import menu from "../assets/setting.jpg";
-import search from "../assets/search.png";
-import avtar from "../assets/avrar.jpg";
+import {
+  FiSearch,
+  FiPlus,
+  FiSettings,
+  FiLogOut,
+  FiX,
+  FiUserPlus,
+} from "react-icons/fi";
 
 import {
   getUsers,
@@ -19,7 +26,7 @@ import {
   getFavouriteMessages,
 } from "../api/messageapi";
 
-import socket from "../api/socket";
+import socket from "../socket";
 
 const Sidebar = ({
   selectedUser,
@@ -27,149 +34,112 @@ const Sidebar = ({
 }) => {
   const navigate = useNavigate();
 
-  // =========================================================
-  // USERS
-  // =========================================================
+  // =====================================================
+  // STATES
+  // =====================================================
 
   const [users, setUsers] = useState([]);
-
   const [allUsers, setAllUsers] = useState([]);
 
-  // =========================================================
-  // LATEST MESSAGE TIME
-  // =========================================================
-
-  const [latestTimes, setLatestTimes] = useState({});
-
-  // =========================================================
-  // UNREAD COUNTS
-  // =========================================================
-
-  const [unreadCounts, setUnreadCounts] = useState({});
-
-  // =========================================================
-  // FAVOURITE USERS
-  // =========================================================
-
-  const [favouriteUserIds, setFavouriteUserIds] = useState([]);
-
-  // =========================================================
-  // ACTIVE TAB
-  // =========================================================
-
-  const [activeTab, setActiveTab] = useState("all");
-
-  // =========================================================
-  // SEARCH
-  // =========================================================
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  // =========================================================
-  // SETTINGS
-  // =========================================================
-
-  const [showSettings, setShowSettings] = useState(false);
-
-  // =========================================================
-  // LOADING
-  // =========================================================
+  const [activeTab, setActiveTab] = useState("all");
 
   const [loading, setLoading] = useState(true);
 
-  // =========================================================
-  // ONLINE USERS
-  // =========================================================
+  const [latestTimes, setLatestTimes] = useState({});
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [favouriteUserIds, setFavouriteUserIds] = useState([]);
 
   const [onlineUsers, setOnlineUsers] = useState([]);
 
-  // =========================================================
-  // ADD CONTACT MODAL
-  // =========================================================
+  const [showSettings, setShowSettings] = useState(false);
 
+  // Add user modal
   const [showAddContact, setShowAddContact] = useState(false);
-
   const [contactEmail, setContactEmail] = useState("");
 
   const [addingContact, setAddingContact] = useState(false);
 
   const [contactError, setContactError] = useState("");
-
   const [contactSuccess, setContactSuccess] = useState("");
 
-  // =========================================================
-  // LOAD USERS
-  // =========================================================
+  // =====================================================
+  // LOAD CONTACTS
+  // =====================================================
 
   const loadUsers = async () => {
     try {
-      const response = await getUsers();
+      const data = await getUsers();
 
-      console.log("Sidebar users response:", response);
+      const contactList = Array.isArray(data)
+        ? data
+        : [];
 
-      let userList = [];
-
-      if (Array.isArray(response)) {
-        userList = response;
-      } else if (Array.isArray(response?.users)) {
-        userList = response.users;
-      } else if (Array.isArray(response?.data)) {
-        userList = response.data;
-      }
-
-      setAllUsers(userList);
-
-      return userList;
+      setUsers(contactList);
+      setAllUsers(contactList);
     } catch (error) {
-      console.error("Load users error:", error);
+      console.error(
+        "Load users error:",
+        error
+      );
 
+      setUsers([]);
       setAllUsers([]);
-
-      return [];
     }
   };
 
-  // =========================================================
-  // LOAD LATEST MESSAGE TIMES
-  // =========================================================
+  // =====================================================
+  // LOAD CURRENT USER
+  // =====================================================
 
-  const loadLatestMessageTimes = async (userList) => {
+  const loadCurrentUser = async () => {
+    try {
+      const data = await getCurrentUser();
+
+      setCurrentUser(data);
+    } catch (error) {
+      console.error(
+        "Load current user error:",
+        error
+      );
+    }
+  };
+
+  // =====================================================
+  // LOAD LATEST MESSAGE TIME
+  // =====================================================
+
+  const loadLatestMessageTimes = async (
+    userList
+  ) => {
     try {
       const times = {};
 
       await Promise.all(
         userList.map(async (user) => {
           try {
-            if (!user?._id) return;
-
-            const response = await getMessages(user._id);
-
-            const messages = Array.isArray(response)
-              ? response
-              : response?.messages || response?.data || [];
-
-            if (!messages.length) {
-              return;
-            }
-
-            const latestMessage = messages.reduce(
-              (latest, message) => {
-                if (!latest) return message;
-
-                return new Date(message.createdAt) >
-                  new Date(latest.createdAt)
-                  ? message
-                  : latest;
-              },
-              null
+            const messages = await getMessages(
+              user._id
             );
 
-            if (latestMessage?.createdAt) {
-              times[user._id] = latestMessage.createdAt;
+            if (
+              Array.isArray(messages) &&
+              messages.length > 0
+            ) {
+              const lastMessage =
+                messages[messages.length - 1];
+
+              times[user._id] =
+                new Date(
+                  lastMessage.createdAt
+                ).getTime();
             }
           } catch (error) {
             console.error(
-              `Latest message error for ${user._id}:`,
+              `Message error for ${user._id}:`,
               error
             );
           }
@@ -177,227 +147,179 @@ const Sidebar = ({
       );
 
       setLatestTimes(times);
-
-      return times;
     } catch (error) {
-      console.error("Load latest times error:", error);
-
-      return {};
+      console.error(
+        "Latest message error:",
+        error
+      );
     }
   };
 
-  // =========================================================
+  // =====================================================
   // SORT USERS BY LATEST MESSAGE
-  // =========================================================
+  // =====================================================
 
   const sortUsersByLatestMessage = (
     userList,
     times = latestTimes
   ) => {
     return [...userList].sort((a, b) => {
-      const timeA = times[a._id]
-        ? new Date(times[a._id]).getTime()
-        : 0;
-
-      const timeB = times[b._id]
-        ? new Date(times[b._id]).getTime()
-        : 0;
+      const timeA = times[a._id] || 0;
+      const timeB = times[b._id] || 0;
 
       return timeB - timeA;
     });
   };
 
-  // =========================================================
+  // =====================================================
   // LOAD UNREAD COUNTS
-  // =========================================================
+  // =====================================================
 
-  const loadUnreadCounts = async (userList) => {
+  const loadUnreadCounts = async (
+    userList
+  ) => {
     try {
       const counts = {};
 
       await Promise.all(
         userList.map(async (user) => {
           try {
-            if (!user?._id) return;
+            const result =
+              await getUnreadCount(user._id);
 
-            const response = await getUnreadCount(
-              user._id
-            );
-
-            let count = 0;
-
-            if (typeof response === "number") {
-              count = response;
-            } else if (
-              typeof response?.count === "number"
-            ) {
-              count = response.count;
-            } else if (
-              typeof response?.unreadCount === "number"
-            ) {
-              count = response.unreadCount;
-            }
-
-            counts[user._id] = count;
+            counts[user._id] =
+              result?.count || 0;
           } catch (error) {
-            console.error(
-              `Unread count error for ${user._id}:`,
-              error
-            );
-
             counts[user._id] = 0;
           }
         })
       );
 
       setUnreadCounts(counts);
-
-      return counts;
     } catch (error) {
-      console.error("Load unread counts error:", error);
-
-      return {};
+      console.error(
+        "Unread count error:",
+        error
+      );
     }
   };
 
-  // =========================================================
+  // =====================================================
   // LOAD FAVOURITE USERS
-  // =========================================================
+  // =====================================================
 
-  const loadFavouriteUsers = async (userList) => {
+  const loadFavouriteUsers = async () => {
     try {
-      const favouriteResponse =
+      const favouriteMessages =
         await getFavouriteMessages();
 
-      const favouriteMessages = Array.isArray(
-        favouriteResponse
-      )
-        ? favouriteResponse
-        : favouriteResponse?.messages ||
-          favouriteResponse?.data ||
-          [];
+      if (
+        !Array.isArray(favouriteMessages)
+      ) {
+        setFavouriteUserIds([]);
+        return;
+      }
 
-      const currentUser = await getCurrentUser();
+      const ids = [
+        ...new Set(
+          favouriteMessages
+            .map((message) => {
+              const sender =
+                message.senderId?._id ||
+                message.senderId;
 
-      const currentUserId = String(
-        currentUser?._id || ""
-      );
+              const receiver =
+                message.receiverId?._id ||
+                message.receiverId;
 
-      const favouriteIds = new Set();
+              const currentId =
+                currentUser?._id;
 
-      favouriteMessages.forEach((message) => {
-        if (!message) return;
+              if (
+                String(sender) ===
+                String(currentId)
+              ) {
+                return String(receiver);
+              }
 
-        const senderId =
-          message.senderId?._id ||
-          message.senderId;
+              return String(sender);
+            })
+            .filter(Boolean)
+        ),
+      ];
 
-        const receiverId =
-          message.receiverId?._id ||
-          message.receiverId;
-
-        const sender = String(senderId || "");
-
-        const receiver = String(receiverId || "");
-
-        let otherUserId = "";
-
-        if (sender === currentUserId) {
-          otherUserId = receiver;
-        } else {
-          otherUserId = sender;
-        }
-
-        if (otherUserId) {
-          favouriteIds.add(otherUserId);
-        }
-      });
-
-      const validFavouriteIds = userList
-        .filter((user) =>
-          favouriteIds.has(String(user._id))
-        )
-        .map((user) => String(user._id));
-
-      setFavouriteUserIds(validFavouriteIds);
-
-      return validFavouriteIds;
+      setFavouriteUserIds(ids);
     } catch (error) {
       console.error(
-        "Load favourite users error:",
+        "Favourite users error:",
         error
       );
 
       setFavouriteUserIds([]);
-
-      return [];
     }
   };
 
-  // =========================================================
-  // LOAD ALL SIDEBAR DATA
-  // =========================================================
+  // =====================================================
+  // LOAD EVERYTHING
+  // =====================================================
 
   const loadSidebarData = async () => {
     try {
       setLoading(true);
 
-      const userList = await loadUsers();
-
-      if (!userList.length) {
-        setUsers([]);
-        setLatestTimes({});
-        setUnreadCounts({});
-        setFavouriteUserIds([]);
-
-        return;
-      }
-
-      const times =
-        await loadLatestMessageTimes(userList);
-
-      await loadUnreadCounts(userList);
-
-      await loadFavouriteUsers(userList);
-
-      const sortedUsers =
-        sortUsersByLatestMessage(
-          userList,
-          times
-        );
-
-      setUsers(sortedUsers);
+      await loadCurrentUser();
+      await loadUsers();
     } catch (error) {
       console.error(
-        "Load sidebar data error:",
+        "Sidebar loading error:",
         error
       );
-
-      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================================================
+  // =====================================================
   // INITIAL LOAD
-  // =========================================================
+  // =====================================================
 
   useEffect(() => {
     loadSidebarData();
   }, []);
 
-  // =========================================================
-  // REAL ONLINE USERS
-  // =========================================================
+  // =====================================================
+  // LOAD MESSAGE DATA WHEN USERS CHANGE
+  // =====================================================
 
   useEffect(() => {
-    const handleOnlineUsers = (userIds) => {
-      console.log(
-        "Online users received:",
-        userIds
-      );
+    if (!users.length) {
+      setLatestTimes({});
+      setUnreadCounts({});
+      return;
+    }
 
+    loadLatestMessageTimes(users);
+    loadUnreadCounts(users);
+  }, [users]);
+
+  // =====================================================
+  // LOAD FAVOURITES
+  // =====================================================
+
+  useEffect(() => {
+    if (currentUser?._id) {
+      loadFavouriteUsers();
+    }
+  }, [currentUser?._id]);
+
+  // =====================================================
+  // ONLINE USERS
+  // =====================================================
+
+  useEffect(() => {
+    const handleOnlineUsers = (
+      userIds
+    ) => {
       if (!Array.isArray(userIds)) {
         setOnlineUsers([]);
         return;
@@ -421,209 +343,149 @@ const Sidebar = ({
     };
   }, []);
 
-  // =========================================================
-  // SEARCH USER
-  // =========================================================
+  // =====================================================
+  // SEARCH CONTACTS
+  // =====================================================
 
   useEffect(() => {
-    const searchUsers = async () => {
+    const delay = setTimeout(async () => {
       if (!searchTerm.trim()) {
-        const sortedUsers =
-          sortUsersByLatestMessage(allUsers);
-
-        setUsers(sortedUsers);
-
+        setUsers(allUsers);
         return;
       }
 
       try {
-        const response = await searchUser(
+        const data = await searchUser(
           searchTerm.trim()
         );
 
-        let searchResults = [];
-
-        if (Array.isArray(response)) {
-          searchResults = response;
-        } else if (Array.isArray(response?.users)) {
-          searchResults = response.users;
-        } else if (Array.isArray(response?.data)) {
-          searchResults = response.data;
-        }
-
-        setUsers(searchResults);
+        setUsers(
+          Array.isArray(data) ? data : []
+        );
       } catch (error) {
         console.error(
-          "Search user error:",
+          "Search error:",
           error
         );
 
         setUsers([]);
       }
-    };
+    }, 300);
 
-    const timer = setTimeout(
-      searchUsers,
-      300
-    );
-
-    return () => clearTimeout(timer);
+    return () => clearTimeout(delay);
   }, [searchTerm, allUsers]);
 
-  // =========================================================
-  // REFRESH CHAT ORDER
-  // =========================================================
+  // =====================================================
+  // FILTER USERS
+  // =====================================================
 
-  const refreshChatOrder = async (userId) => {
-    try {
-      if (!userId) return;
-
-      const response = await getMessages(
-        userId
-      );
-
-      const messages = Array.isArray(response)
-        ? response
-        : response?.messages ||
-          response?.data ||
-          [];
-
-      if (!messages.length) return;
-
-      const latestMessage = messages.reduce(
-        (latest, message) => {
-          if (!latest) return message;
-
-          return new Date(message.createdAt) >
-            new Date(latest.createdAt)
-            ? message
-            : latest;
-        },
-        null
-      );
-
-      if (!latestMessage?.createdAt) {
-        return;
-      }
-
-      const newTimes = {
-        ...latestTimes,
-        [userId]: latestMessage.createdAt,
-      };
-
-      setLatestTimes(newTimes);
-
-      setUsers((prevUsers) =>
-        sortUsersByLatestMessage(
-          prevUsers,
-          newTimes
-        )
-      );
-
-      setAllUsers((prevUsers) =>
-        sortUsersByLatestMessage(
-          prevUsers,
-          newTimes
-        )
-      );
-    } catch (error) {
-      console.error(
-        "Refresh chat order error:",
-        error
+  const getFilteredUsers = () => {
+    if (activeTab === "unread") {
+      return users.filter(
+        (user) =>
+          (unreadCounts[user._id] || 0) > 0
       );
     }
+
+    if (activeTab === "favourites") {
+      return users.filter((user) =>
+        favouriteUserIds.includes(
+          String(user._id)
+        )
+      );
+    }
+
+    return users;
   };
 
-  // =========================================================
+  const filteredUsers =
+    getFilteredUsers();
+
+  // =====================================================
   // SELECT USER
-  // =========================================================
+  // =====================================================
 
   const handleSelectUser = async (user) => {
-    if (!user?._id) return;
-
     setSelectedUser(user);
 
-    await refreshChatOrder(user._id);
+    // Clear unread count locally
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [user._id]: 0,
+    }));
+  };
 
+  // =====================================================
+  // REFRESH CHAT ORDER
+  // =====================================================
+
+  const refreshChatOrder = async () => {
     try {
-      const response = await getMessages(
-        user._id
+      const data = await getUsers();
+
+      const contactList = Array.isArray(data)
+        ? data
+        : [];
+
+      setAllUsers(contactList);
+      setUsers(contactList);
+
+      await loadLatestMessageTimes(
+        contactList
       );
 
-      console.log(
-        "Selected user messages:",
-        response
+      await loadUnreadCounts(
+        contactList
       );
+
+      await loadFavouriteUsers();
     } catch (error) {
       console.error(
-        "Load selected messages error:",
+        "Refresh sidebar error:",
         error
       );
     }
   };
 
-  // =========================================================
+  // =====================================================
   // ADD CONTACT
-  // =========================================================
+  // =====================================================
 
-  const handleAddContact = async () => {
-    const email = contactEmail
-      .trim()
-      .toLowerCase();
+  const handleAddContact = async (e) => {
+    e.preventDefault();
 
-    // Empty email
-    if (!email) {
+    setContactError("");
+    setContactSuccess("");
+
+    if (!contactEmail.trim()) {
       setContactError(
-        "Please enter an email address"
+        "Please enter Gmail"
       );
-
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      setContactError(
-        "Please enter a valid email address"
-      );
-
       return;
     }
 
     try {
       setAddingContact(true);
 
-      setContactError("");
-
-      setContactSuccess("");
-
-      // API call
       const response =
-        await addContact(email);
-
-      console.log(
-        "Add contact response:",
-        response
-      );
+        await addContact(
+          contactEmail.trim()
+        );
 
       setContactSuccess(
-        "User added successfully"
+        response?.message ||
+          "Contact added successfully"
       );
 
       setContactEmail("");
 
-      // Refresh complete sidebar
-      await loadSidebarData();
+      // Reload sidebar
+      await refreshChatOrder();
 
       // Close modal after short delay
       setTimeout(() => {
         setShowAddContact(false);
-
         setContactSuccess("");
-
-        setContactError("");
       }, 800);
     } catch (error) {
       console.error(
@@ -640,160 +502,88 @@ const Sidebar = ({
     }
   };
 
-  // =========================================================
-  // CLOSE ADD USER MODAL
-  // =========================================================
-
-  const closeAddContactModal = () => {
-    setShowAddContact(false);
-
-    setContactEmail("");
-
-    setContactError("");
-
-    setContactSuccess("");
-  };
-
-  // =========================================================
+  // =====================================================
   // LOGOUT
-  // =========================================================
+  // =====================================================
 
   const handleLogout = () => {
     localStorage.removeItem("token");
 
+    socket.disconnect();
+
     navigate("/");
   };
 
-  // =========================================================
-  // FORMAT TIME
-  // =========================================================
+  // =====================================================
+  // USER TIME
+  // =====================================================
 
-  const formatTime = (date) => {
-    if (!date) return "";
+  const formatTime = (userId) => {
+    const time = latestTimes[userId];
 
-    const messageDate =
-      new Date(date);
+    if (!time) return "";
 
-    const today = new Date();
+    const date = new Date(time);
 
-    const isToday =
-      messageDate.toDateString() ===
-      today.toDateString();
-
-    if (isToday) {
-      return messageDate.toLocaleTimeString(
-        [],
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      );
-    }
-
-    return messageDate.toLocaleDateString(
+    return date.toLocaleTimeString(
       [],
       {
-        day: "2-digit",
-        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
       }
     );
   };
 
-  // =========================================================
-  // FILTER USERS
-  // =========================================================
-
-  const filteredUsers = users.filter(
-    (user) => {
-      if (activeTab === "all") {
-        return true;
-      }
-
-      if (activeTab === "unread") {
-        return (
-          Number(
-            unreadCounts[user._id] || 0
-          ) > 0
-        );
-      }
-
-      if (activeTab === "favourites") {
-        return favouriteUserIds.includes(
-          String(user._id)
-        );
-      }
-
-      return true;
-    }
-  );
-
-  // =========================================================
-  // UI
-  // =========================================================
+  // =====================================================
+  // RENDER
+  // =====================================================
 
   return (
-    <div className="relative w-full h-full bg-white flex flex-col overflow-hidden">
+    <div className="w-full h-full bg-white flex flex-col relative">
 
-      {/* =====================================================
+      {/* =================================================
           HEADER
-      ===================================================== */}
+      ================================================= */}
 
-      <div className="px-5 pt-5 pb-4 border-b border-gray-100">
+      <div className="px-4 py-4 border-b border-gray-100">
 
         <div className="flex items-center justify-between">
 
-          {/* TITLE */}
-
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              Messages
+            <h2 className="text-xl font-semibold text-gray-800">
+              Chats
             </h2>
 
-            <p className="text-sm text-gray-500 mt-0.5">
-              Chats
+            <p className="text-xs text-gray-400 mt-0.5">
+              {currentUser?.fullName ||
+                "WebChat"}
             </p>
           </div>
 
-
-          {/* RIGHT BUTTONS */}
-
           <div className="flex items-center gap-2">
 
-            {/* ADD USER BUTTON */}
+            {/* ADD USER */}
 
             <button
               type="button"
               onClick={() => {
                 setShowAddContact(true);
-
-                setShowSettings(false);
-
                 setContactError("");
-
                 setContactSuccess("");
               }}
-              title="Add User"
               className="
-                w-9
-                h-9
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-gray-700
-                flex
-                items-center
-                justify-center
-                text-xl
-                font-light
-                hover:bg-gray-50
-                hover:border-gray-300
-                transition-all
+                w-9 h-9
+                rounded-full
+                bg-gray-100
+                hover:bg-gray-200
+                flex items-center justify-center
+                text-gray-600
+                transition
               "
+              title="Add User"
             >
-              +
+              <FiPlus className="text-lg" />
             </button>
-
 
             {/* SETTINGS */}
 
@@ -807,28 +597,18 @@ const Sidebar = ({
                   )
                 }
                 className="
-                  w-9
-                  h-9
-                  rounded-xl
-                  border
-                  border-gray-200
-                  bg-white
-                  flex
-                  items-center
-                  justify-center
-                  hover:bg-gray-50
+                  w-9 h-9
+                  rounded-full
+                  bg-gray-100
+                  hover:bg-gray-200
+                  flex items-center justify-center
+                  text-gray-600
                   transition
                 "
+                title="Settings"
               >
-                <img
-                  src={menu}
-                  alt="Settings"
-                  className="w-5 h-5 object-contain"
-                />
+                <FiSettings className="text-lg" />
               </button>
-
-
-              {/* SETTINGS DROPDOWN */}
 
               {showSettings && (
                 <div
@@ -839,49 +619,57 @@ const Sidebar = ({
                     w-44
                     bg-white
                     border
-                    border-gray-100
+                    border-gray-200
                     rounded-xl
                     shadow-xl
-                    z-50
+                    z-40
                     overflow-hidden
                   "
                 >
 
+                  {/* PROFILE */}
+
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate("/profile")
-                    }
+                    onClick={() => {
+                      setShowSettings(false);
+                      navigate("/profile");
+                    }}
                     className="
                       w-full
-                      text-left
                       px-4
                       py-3
+                      flex
+                      items-center
+                      gap-3
                       text-sm
                       text-gray-700
                       hover:bg-gray-50
-                      transition
                     "
                   >
-                    Edit Profile
+                    <FiSettings />
+                    Profile Settings
                   </button>
 
+                  {/* LOGOUT */}
 
                   <button
                     type="button"
                     onClick={handleLogout}
                     className="
                       w-full
-                      text-left
                       px-4
                       py-3
+                      flex
+                      items-center
+                      gap-3
                       text-sm
                       text-red-500
                       hover:bg-red-50
-                      transition
                     "
                   >
-                    Log out
+                    <FiLogOut />
+                    Logout
                   </button>
 
                 </div>
@@ -893,31 +681,23 @@ const Sidebar = ({
 
         </div>
 
-
-        {/* ===================================================
+        {/* =================================================
             SEARCH
-        =================================================== */}
+        ================================================= */}
 
         <div
           className="
             mt-4
-            h-11
             flex
             items-center
-            gap-3
-            px-3.5
+            gap-2
+            px-3
+            h-11
+            bg-gray-100
             rounded-xl
-            bg-gray-50
-            border
-            border-gray-100
           "
         >
-
-          <img
-            src={search}
-            alt="Search"
-            className="w-4 h-4 opacity-60"
-          />
+          <FiSearch className="text-gray-400 text-lg flex-shrink-0" />
 
           <input
             type="text"
@@ -927,13 +707,14 @@ const Sidebar = ({
                 e.target.value
               )
             }
-            placeholder="Search users..."
+            placeholder="Search chats..."
             className="
-              w-full
+              flex-1
               bg-transparent
               outline-none
+              border-none
               text-sm
-              text-gray-800
+              text-gray-700
               placeholder:text-gray-400
             "
           />
@@ -944,33 +725,18 @@ const Sidebar = ({
               onClick={() =>
                 setSearchTerm("")
               }
-              className="
-                text-gray-400
-                hover:text-gray-700
-                text-sm
-              "
+              className="text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <FiX />
             </button>
           )}
-
         </div>
 
+        {/* =================================================
+            FILTER TABS
+        ================================================= */}
 
-        {/* ===================================================
-            TABS
-        =================================================== */}
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-            mt-4
-          "
-        >
-
-          {/* ALL */}
+        <div className="flex items-center gap-2 mt-4">
 
           <button
             type="button"
@@ -979,23 +745,20 @@ const Sidebar = ({
             }
             className={`
               px-4
-              py-2
+              py-1.5
               rounded-full
               text-xs
               font-medium
               transition
               ${
                 activeTab === "all"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }
             `}
           >
             All
           </button>
-
-
-          {/* UNREAD */}
 
           <button
             type="button"
@@ -1004,43 +767,37 @@ const Sidebar = ({
             }
             className={`
               px-4
-              py-2
+              py-1.5
               rounded-full
               text-xs
               font-medium
               transition
               ${
                 activeTab === "unread"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }
             `}
           >
             Unread
           </button>
 
-
-          {/* FAVOURITES */}
-
           <button
             type="button"
             onClick={() =>
-              setActiveTab(
-                "favourites"
-              )
+              setActiveTab("favourites")
             }
             className={`
               px-4
-              py-2
+              py-1.5
               rounded-full
               text-xs
               font-medium
               transition
               ${
-                activeTab ===
-                "favourites"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                activeTab === "favourites"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }
             `}
           >
@@ -1051,87 +808,77 @@ const Sidebar = ({
 
       </div>
 
-
-      {/* =====================================================
-          USER LIST
-      ===================================================== */}
+      {/* =================================================
+          USERS LIST
+      ================================================= */}
 
       <div className="flex-1 overflow-y-auto">
 
-        {/* LOADING */}
-
         {loading ? (
-          <div className="px-5 py-10 text-center">
-
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin mx-auto" />
-
-            <p className="text-sm text-gray-400 mt-3">
+          <div className="flex items-center justify-center py-10">
+            <p className="text-sm text-gray-400">
               Loading chats...
             </p>
-
           </div>
         ) : filteredUsers.length === 0 ? (
 
-          /* EMPTY */
+          /* EMPTY STATE */
 
-          <div className="px-5 py-14 text-center">
+          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
 
             <div
               className="
                 w-14
                 h-14
-                rounded-2xl
-                bg-gray-50
-                border
-                border-gray-100
+                rounded-full
+                bg-gray-100
                 flex
                 items-center
                 justify-center
-                mx-auto
-                text-2xl
+                mb-4
               "
             >
-              +
+              <FiUserPlus className="text-2xl text-gray-400" />
             </div>
 
-            <h3 className="mt-4 text-sm font-semibold text-gray-800">
-              No users yet
+            <h3 className="text-sm font-semibold text-gray-700">
+              No chats yet
             </h3>
 
-            <p className="mt-1 text-xs text-gray-400 leading-5">
-              Add someone using their
-              registered email address
+            <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
+              Add a WebChat user using their Gmail to start chatting.
             </p>
 
             <button
               type="button"
               onClick={() => {
                 setShowAddContact(true);
-
                 setContactError("");
-
                 setContactSuccess("");
               }}
               className="
-                mt-4
+                mt-5
                 px-4
                 py-2
-                rounded-xl
-                bg-black
+                rounded-lg
+                bg-gray-900
                 text-white
                 text-xs
                 font-medium
                 hover:bg-gray-800
                 transition
+                flex
+                items-center
+                gap-2
               "
             >
+              <FiPlus />
               Add User
             </button>
 
           </div>
-        ) : (
 
-          /* USER LIST */
+        ) : (
 
           <div className="py-2">
 
@@ -1144,43 +891,20 @@ const Sidebar = ({
                   ) ===
                   String(user._id);
 
-
-                // ==========================================
-                // REAL ONLINE STATUS
-                // ==========================================
-
                 const isOnline =
                   onlineUsers.includes(
                     String(user._id)
                   );
 
-
-                // ==========================================
-                // UNREAD
-                // ==========================================
-
-                const unreadCount =
-                  Number(
-                    unreadCounts[
-                      user._id
-                    ] || 0
-                  );
-
-
-                // ==========================================
-                // FAVOURITE
-                // ==========================================
-
-                const isFavourite =
-                  favouriteUserIds.includes(
-                    String(user._id)
-                  );
-
+                const unread =
+                  unreadCounts[
+                    user._id
+                  ] || 0;
 
                 return (
                   <button
-                    key={user._id}
                     type="button"
+                    key={user._id}
                     onClick={() =>
                       handleSelectUser(
                         user
@@ -1203,31 +927,25 @@ const Sidebar = ({
                     `}
                   >
 
-                    {/* ====================================
-                        AVATAR
-                    ==================================== */}
+                    {/* AVATAR */}
 
-                    <div className="relative shrink-0">
+                    <div className="relative flex-shrink-0">
 
                       <img
                         src={
                           user.profilePic ||
                           avtar
                         }
-                        alt={
-                          user.fullName ||
-                          "User"
-                        }
+                        alt=""
                         className="
-                          w-11
-                          h-11
+                          w-12
+                          h-12
                           rounded-full
                           object-cover
                           border
                           border-gray-100
                         "
                       />
-
 
                       {/* ONLINE DOT */}
 
@@ -1251,10 +969,7 @@ const Sidebar = ({
 
                     </div>
 
-
-                    {/* ====================================
-                        USER DETAILS
-                    ==================================== */}
+                    {/* USER INFO */}
 
                     <div className="flex-1 min-w-0">
 
@@ -1268,35 +983,16 @@ const Sidebar = ({
                             truncate
                           "
                         >
-                          {user.fullName ||
-                            "Unknown User"}
+                          {user.fullName}
                         </h3>
 
-
-                        {/* TIME */}
-
-                        {latestTimes[
-                          user._id
-                        ] && (
-                          <span
-                            className="
-                              text-[10px]
-                              text-gray-400
-                              shrink-0
-                            "
-                          >
-                            {formatTime(
-                              latestTimes[
-                                user._id
-                              ]
-                            )}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-gray-400 flex-shrink-0">
+                          {formatTime(
+                            user._id
+                          )}
+                        </span>
 
                       </div>
-
-
-                      {/* EMAIL / ONLINE */}
 
                       <div className="flex items-center justify-between gap-2 mt-1">
 
@@ -1307,57 +1003,33 @@ const Sidebar = ({
                             truncate
                           "
                         >
-                          {isOnline
-                            ? "Online"
-                            : user.email ||
-                              "Offline"}
+                          {user.bio ||
+                            "Hey! I am using WebChat"}
                         </p>
 
+                        {/* UNREAD */}
 
-                        {/* RIGHT SIDE */}
-
-                        <div className="flex items-center gap-2 shrink-0">
-
-                          {/* FAVOURITE */}
-
-                          {isFavourite && (
-                            <span
-                              className="
-                                text-yellow-500
-                                text-sm
-                              "
-                            >
-                              ★
-                            </span>
-                          )}
-
-
-                          {/* UNREAD */}
-
-                          {unreadCount > 0 && (
-                            <span
-                              className="
-                                min-w-5
-                                h-5
-                                px-1.5
-                                rounded-full
-                                bg-black
-                                text-white
-                                text-[10px]
-                                font-medium
-                                flex
-                                items-center
-                                justify-center
-                              "
-                            >
-                              {unreadCount >
-                              99
-                                ? "99+"
-                                : unreadCount}
-                            </span>
-                          )}
-
-                        </div>
+                        {unread > 0 && (
+                          <span
+                            className="
+                              min-w-5
+                              h-5
+                              px-1.5
+                              rounded-full
+                              bg-gray-900
+                              text-white
+                              text-[10px]
+                              flex
+                              items-center
+                              justify-center
+                              flex-shrink-0
+                            "
+                          >
+                            {unread > 99
+                              ? "99+"
+                              : unread}
+                          </span>
+                        )}
 
                       </div>
 
@@ -1369,28 +1041,31 @@ const Sidebar = ({
             )}
 
           </div>
+
         )}
 
       </div>
 
-
-      {/* =====================================================
+      {/* =================================================
           ADD USER MODAL
-      ===================================================== */}
+      ================================================= */}
 
       {showAddContact && (
         <div
           className="
-            fixed
+            absolute
             inset-0
-            z-[100]
-            bg-black/20
+            bg-black/30
             backdrop-blur-[2px]
+            z-50
             flex
             items-center
             justify-center
-            px-4
+            p-4
           "
+          onClick={() =>
+            setShowAddContact(false)
+          }
         >
 
           <div
@@ -1399,212 +1074,116 @@ const Sidebar = ({
               max-w-sm
               bg-white
               rounded-2xl
-              border
-              border-gray-100
               shadow-2xl
-              p-6
+              p-5
             "
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
 
-            {/* ============================================
-                MODAL HEADER
-            ============================================ */}
+            {/* MODAL HEADER */}
 
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center justify-between">
 
               <div>
 
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Add User
-                </h3>
+                </h2>
 
-                <p className="text-sm text-gray-500 mt-1">
-                  Add a registered user using
-                  their email
+                <p className="text-xs text-gray-400 mt-1">
+                  Enter their registered Gmail
                 </p>
 
               </div>
 
-
-              {/* CLOSE */}
-
               <button
                 type="button"
-                onClick={
-                  closeAddContactModal
+                onClick={() =>
+                  setShowAddContact(false)
                 }
                 className="
                   w-8
                   h-8
-                  rounded-lg
+                  rounded-full
+                  bg-gray-100
                   flex
                   items-center
                   justify-center
-                  text-gray-400
-                  hover:bg-gray-100
-                  hover:text-gray-700
-                  transition
+                  text-gray-500
+                  hover:bg-gray-200
                 "
               >
-                ✕
+                <FiX />
               </button>
 
             </div>
 
+            {/* FORM */}
 
-            {/* ============================================
-                EMAIL INPUT
-            ============================================ */}
+            <form
+              onSubmit={
+                handleAddContact
+              }
+              className="mt-5"
+            >
 
-            <div className="mt-6">
-
-              <label
-                className="
-                  block
-                  text-sm
-                  font-medium
-                  text-gray-700
-                  mb-2
-                "
-              >
-                Gmail / Email
+              <label className="text-xs font-medium text-gray-600">
+                Gmail
               </label>
 
               <input
                 type="email"
                 value={contactEmail}
-                onChange={(e) => {
+                onChange={(e) =>
                   setContactEmail(
                     e.target.value
-                  );
-
-                  setContactError("");
-
-                  setContactSuccess("");
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter"
-                  ) {
-                    handleAddContact();
-                  }
-                }}
+                  )
+                }
                 placeholder="example@gmail.com"
-                autoFocus
                 className="
+                  mt-2
                   w-full
-                  h-12
-                  px-4
+                  h-11
+                  px-3
                   rounded-xl
                   border
                   border-gray-200
                   outline-none
                   text-sm
-                  text-gray-800
-                  placeholder:text-gray-400
+                  text-gray-700
                   focus:border-gray-400
-                  focus:ring-2
-                  focus:ring-gray-100
-                  transition
                 "
               />
 
-            </div>
+              {/* ERROR */}
 
-
-            {/* ============================================
-                ERROR
-            ============================================ */}
-
-            {contactError && (
-              <div
-                className="
-                  mt-3
-                  px-3
-                  py-2.5
-                  rounded-xl
-                  bg-red-50
-                  border
-                  border-red-100
-                "
-              >
-                <p className="text-xs text-red-600">
+              {contactError && (
+                <p className="mt-2 text-xs text-red-500">
                   {contactError}
                 </p>
-              </div>
-            )}
+              )}
 
+              {/* SUCCESS */}
 
-            {/* ============================================
-                SUCCESS
-            ============================================ */}
-
-            {contactSuccess && (
-              <div
-                className="
-                  mt-3
-                  px-3
-                  py-2.5
-                  rounded-xl
-                  bg-green-50
-                  border
-                  border-green-100
-                "
-              >
-                <p className="text-xs text-green-600">
+              {contactSuccess && (
+                <p className="mt-2 text-xs text-green-600">
                   {contactSuccess}
                 </p>
-              </div>
-            )}
+              )}
 
-
-            {/* ============================================
-                BUTTONS
-            ============================================ */}
-
-            <div className="flex gap-3 mt-6">
-
-              {/* CANCEL */}
+              {/* BUTTON */}
 
               <button
-                type="button"
-                onClick={
-                  closeAddContactModal
-                }
+                type="submit"
                 disabled={addingContact}
                 className="
-                  flex-1
+                  mt-4
+                  w-full
                   h-11
                   rounded-xl
-                  border
-                  border-gray-200
-                  text-gray-700
-                  text-sm
-                  font-medium
-                  hover:bg-gray-50
-                  disabled:opacity-50
-                  transition
-                "
-              >
-                Cancel
-              </button>
-
-
-              {/* ADD */}
-
-              <button
-                type="button"
-                onClick={
-                  handleAddContact
-                }
-                disabled={
-                  addingContact
-                }
-                className="
-                  flex-1
-                  h-11
-                  rounded-xl
-                  bg-black
+                  bg-gray-900
                   text-white
                   text-sm
                   font-medium
@@ -1619,7 +1198,7 @@ const Sidebar = ({
                   : "Add User"}
               </button>
 
-            </div>
+            </form>
 
           </div>
 
