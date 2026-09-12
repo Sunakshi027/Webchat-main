@@ -1,4 +1,5 @@
+import api from "../api/axois";
 
-/*import API from "axios";
-
-export const authCheck = () => API.get("/check");*/
+export const authCheck = () => {
+  return api.get("/users/profile");
+};
