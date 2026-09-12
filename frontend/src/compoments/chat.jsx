@@ -19,9 +19,6 @@ import {
 
 import { getCurrentUser } from "../api/userapi";
 
-// ===============================
-// ONLY SOCKET IMPORT ADDED
-// ===============================
 import socket from "../socket";
 
 const Chat = ({
@@ -56,6 +53,8 @@ const Chat = ({
         const user = data?.user || data;
 
         setCurrentUser(user);
+
+        console.log("👤 CURRENT USER:", user);
       } catch (error) {
         console.log(
           "Current user error:",
@@ -68,8 +67,8 @@ const Chat = ({
   }, []);
 
   // ==========================================
-  // SOCKET - USER ONLINE
-  // ONLY ADDED
+  // SOCKET - REGISTER USER ONLINE
+  // IMPORTANT FOR REAL TIME
   // ==========================================
 
   useEffect(() => {
@@ -77,14 +76,30 @@ const Chat = ({
       return;
     }
 
-    socket.emit("user-online", currentUser._id);
+    const registerUser = () => {
+      socket.emit("user-online", currentUser._id);
 
-    console.log("Socket user online:", currentUser._id);
+      console.log(
+        "🟢 USER REGISTERED TO SOCKET:",
+        currentUser._id
+      );
+    };
+
+    // If socket already connected
+    if (socket.connected) {
+      registerUser();
+    }
+
+    // Register again whenever socket reconnects
+    socket.on("connect", registerUser);
+
+    return () => {
+      socket.off("connect", registerUser);
+    };
   }, [currentUser?._id]);
 
   // ==========================================
   // SOCKET - RECEIVE NEW MESSAGE
-  // ONLY ADDED
   // ==========================================
 
   useEffect(() => {
@@ -93,6 +108,11 @@ const Chat = ({
     }
 
     const handleNewMessage = (message) => {
+      console.log(
+        "🔥 NEW MESSAGE RECEIVED FROM SOCKET:",
+        message
+      );
+
       if (!message) {
         return;
       }
@@ -111,17 +131,38 @@ const Chat = ({
         message.receiver ||
         "";
 
-      // Check whether message belongs to currently opened chat
+      console.log("👤 SOCKET SENDER:", senderId);
+      console.log("👤 SOCKET RECEIVER:", receiverId);
+      console.log(
+        "👤 CURRENT USER:",
+        currentUser?._id
+      );
+      console.log(
+        "👤 SELECTED USER:",
+        selectedUser?._id
+      );
+
+      // ==========================================
+      // CHECK CURRENT CHAT
+      // ==========================================
+
       const isCurrentChat =
         String(senderId) === String(selectedUser?._id) ||
         String(receiverId) === String(selectedUser?._id);
 
       if (!isCurrentChat) {
+        console.log(
+          "⚠️ Message belongs to another chat"
+        );
+
         return;
       }
 
+      // ==========================================
+      // ADD MESSAGE WITHOUT DUPLICATE
+      // ==========================================
+
       setMessages((prev) => {
-        // Prevent duplicate message
         const exists = prev.some(
           (msg) =>
             msg._id &&
@@ -130,30 +171,56 @@ const Chat = ({
         );
 
         if (exists) {
+          console.log(
+            "⚠️ Duplicate message ignored"
+          );
+
           return prev;
         }
+
+        console.log(
+          "✅ MESSAGE ADDED TO CHAT:",
+          message
+        );
 
         return [...prev, message];
       });
 
-      // If selected user sent this message,
-      // mark it as seen
-      if (String(senderId) === String(selectedUser?._id)) {
-        markMessagesSeen(selectedUser._id).catch((error) => {
-          console.log(
-            "Seen error:",
-            error.response?.data || error.message
-          );
-        });
+      // ==========================================
+      // MARK MESSAGE SEEN
+      // ==========================================
+
+      if (
+        String(senderId) ===
+        String(selectedUser?._id)
+      ) {
+        markMessagesSeen(selectedUser._id).catch(
+          (error) => {
+            console.log(
+              "Seen error:",
+              error.response?.data ||
+                error.message
+            );
+          }
+        );
       }
     };
 
-    socket.on("new-message", handleNewMessage);
+    socket.on(
+      "new-message",
+      handleNewMessage
+    );
 
     return () => {
-      socket.off("new-message", handleNewMessage);
+      socket.off(
+        "new-message",
+        handleNewMessage
+      );
     };
-  }, [currentUser?._id, selectedUser?._id]);
+  }, [
+    currentUser?._id,
+    selectedUser?._id,
+  ]);
 
   // ==========================================
   // LOAD MESSAGES
@@ -168,35 +235,45 @@ const Chat = ({
       try {
         setLoading(true);
 
-        const data = await getMessages(selectedUser._id);
+        const data = await getMessages(
+          selectedUser._id
+        );
 
-        const messageList = data?.messages || data || [];
+        const messageList =
+          data?.messages || data || [];
 
-        const updatedMessages = messageList.map((msg) => {
-          const senderId =
-            msg.senderId?._id ||
-            msg.senderId ||
-            msg.sender?._id ||
-            msg.sender ||
-            "";
+        const updatedMessages =
+          messageList.map((msg) => {
+            const senderId =
+              msg.senderId?._id ||
+              msg.senderId ||
+              msg.sender?._id ||
+              msg.sender ||
+              "";
 
-          if (String(senderId) === String(selectedUser._id)) {
-            return {
-              ...msg,
-              seen: true,
-            };
-          }
+            if (
+              String(senderId) ===
+              String(selectedUser._id)
+            ) {
+              return {
+                ...msg,
+                seen: true,
+              };
+            }
 
-          return msg;
-        });
+            return msg;
+          });
 
         setMessages(updatedMessages);
 
-        await markMessagesSeen(selectedUser._id);
+        await markMessagesSeen(
+          selectedUser._id
+        );
       } catch (error) {
         console.log(
           "Get messages error:",
-          error.response?.data || error.message
+          error.response?.data ||
+            error.message
         );
 
         setMessages([]);
@@ -236,27 +313,80 @@ const Chat = ({
     try {
       setSending(true);
 
+      // ==========================================
+      // SAVE MESSAGE IN DATABASE
+      // ==========================================
+
       const data = await sendMessage(
         selectedUser._id,
         text.trim(),
         selectedImage
       );
 
-      const newMessage = data?.message || data;
+      // Controller now returns:
+      // {
+      //   message: {
+      //      senderId,
+      //      receiverId,
+      //      sender,
+      //      receiver,
+      //      text,
+      //      image,
+      //      createdAt
+      //   }
+      // }
 
-      setMessages((prev) => [...prev, newMessage]);
+      const newMessage =
+        data?.message || data;
+
+      console.log(
+        "📨 MESSAGE FROM API:",
+        newMessage
+      );
 
       // ==========================================
-      // SOCKET - SEND REAL TIME MESSAGE
-      // ONLY ADDED
+      // SHOW MESSAGE IMMEDIATELY FOR SENDER
       // ==========================================
 
-      socket.emit("send-message", newMessage);
+      setMessages((prev) => {
+        const exists = prev.some(
+          (msg) =>
+            msg._id &&
+            newMessage?._id &&
+            String(msg._id) ===
+              String(newMessage._id)
+        );
+
+        if (exists) {
+          return prev;
+        }
+
+        return [...prev, newMessage];
+      });
+
+      // ==========================================
+      // SEND THROUGH SOCKET
+      // ==========================================
+
+      console.log(
+        "📤 SENDING MESSAGE THROUGH SOCKET:",
+        newMessage
+      );
+
+      socket.emit(
+        "send-message",
+        newMessage
+      );
+
+      // ==========================================
+      // CLEAR INPUT
+      // ==========================================
 
       setText("");
       setSelectedImage(null);
 
-      const fileInput = document.getElementById("image");
+      const fileInput =
+        document.getElementById("image");
 
       if (fileInput) {
         fileInput.value = "";
@@ -264,7 +394,8 @@ const Chat = ({
     } catch (error) {
       console.log(
         "Send message error:",
-        error.response?.data || error.message
+        error.response?.data ||
+          error.message
       );
     } finally {
       setSending(false);
@@ -278,6 +409,7 @@ const Chat = ({
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
+
       handleSendMessage();
     }
   };
@@ -301,7 +433,8 @@ const Chat = ({
   const removeSelectedImage = () => {
     setSelectedImage(null);
 
-    const fileInput = document.getElementById("image");
+    const fileInput =
+      document.getElementById("image");
 
     if (fileInput) {
       fileInput.value = "";
@@ -317,14 +450,17 @@ const Chat = ({
       await deleteMessage(messageId);
 
       setMessages((prev) =>
-        prev.filter((msg) => msg._id !== messageId)
+        prev.filter(
+          (msg) => msg._id !== messageId
+        )
       );
 
       setShowMenu(null);
     } catch (error) {
       console.log(
         "Delete error:",
-        error.response?.data || error.message
+        error.response?.data ||
+          error.message
       );
     }
   };
@@ -339,7 +475,10 @@ const Chat = ({
     }
 
     try {
-      await updateMessage(messageId, editMessage.trim());
+      await updateMessage(
+        messageId,
+        editMessage.trim()
+      );
 
       setMessages((prev) =>
         prev.map((msg) =>
@@ -358,7 +497,8 @@ const Chat = ({
     } catch (error) {
       console.log(
         "Update error:",
-        error.response?.data || error.message
+        error.response?.data ||
+          error.message
       );
     }
   };
@@ -367,9 +507,12 @@ const Chat = ({
   // FAVOURITE
   // ==========================================
 
-  const favouriteHandler = async (messageId) => {
+  const favouriteHandler = async (
+    messageId
+  ) => {
     try {
-      const response = await toggleFavourite(messageId);
+      const response =
+        await toggleFavourite(messageId);
 
       const updatedMessage =
         response?.message ||
@@ -396,7 +539,8 @@ const Chat = ({
     } catch (error) {
       console.log(
         "Favourite error:",
-        error.response?.data || error.message
+        error.response?.data ||
+          error.message
       );
     }
   };
@@ -410,10 +554,16 @@ const Chat = ({
       setShowMenu(null);
     };
 
-    document.addEventListener("click", closeMenu);
+    document.addEventListener(
+      "click",
+      closeMenu
+    );
 
     return () => {
-      document.removeEventListener("click", closeMenu);
+      document.removeEventListener(
+        "click",
+        closeMenu
+      );
     };
   }, []);
 
@@ -472,8 +622,8 @@ const Chat = ({
               text-gray-400
             "
           >
-            Select a conversation from the left to start
-            chatting.
+            Select a conversation from the
+            left to start chatting.
           </p>
         </div>
       </div>
@@ -523,7 +673,9 @@ const Chat = ({
 
           <button
             type="button"
-            onClick={() => setSelectedUser(null)}
+            onClick={() =>
+              setSelectedUser(null)
+            }
             className="
               md:hidden
               w-9
@@ -539,7 +691,11 @@ const Chat = ({
             <img
               src={arrow}
               alt="back"
-              className="w-5 h-5 object-contain"
+              className="
+                w-5
+                h-5
+                object-contain
+              "
             />
           </button>
 
@@ -547,7 +703,10 @@ const Chat = ({
 
           <div className="relative flex-shrink-0">
             <img
-              src={selectedUser.profilePic || avtar}
+              src={
+                selectedUser.profilePic ||
+                avtar
+              }
               alt=""
               className="
                 w-11
@@ -617,7 +776,9 @@ const Chat = ({
 
         <button
           type="button"
-          onClick={() => setShowRightSidebar(true)}
+          onClick={() =>
+            setShowRightSidebar(true)
+          }
           className="
             w-9
             h-9
@@ -706,7 +867,8 @@ const Chat = ({
                   text-gray-600
                 "
               >
-                Say hello to {selectedUser.fullName}
+                Say hello to{" "}
+                {selectedUser.fullName}
               </p>
 
               <p
@@ -744,7 +906,9 @@ const Chat = ({
 
               return (
                 <div
-                  key={msg._id || index}
+                  key={
+                    msg._id || index
+                  }
                   className={`
                     flex
                     items-end
@@ -831,7 +995,8 @@ const Chat = ({
                           type="button"
                           onClick={() =>
                             setShowMenu(
-                              showMenu === msg._id
+                              showMenu ===
+                                msg._id
                                 ? null
                                 : msg._id
                             )
@@ -858,7 +1023,8 @@ const Chat = ({
 
                         {/* MENU */}
 
-                        {showMenu === msg._id && (
+                        {showMenu ===
+                          msg._id && (
                           <div
                             onClick={(e) =>
                               e.stopPropagation()
@@ -914,11 +1080,18 @@ const Chat = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditId(msg._id);
-                                  setEditMessage(
-                                    msg.text || ""
+                                  setEditId(
+                                    msg._id
                                   );
-                                  setShowMenu(null);
+
+                                  setEditMessage(
+                                    msg.text ||
+                                      ""
+                                  );
+
+                                  setShowMenu(
+                                    null
+                                  );
                                 }}
                                 className="
                                   w-full
@@ -934,6 +1107,7 @@ const Chat = ({
                                 <span className="mr-2">
                                   ✎
                                 </span>
+
                                 Update
                               </button>
                             )}
@@ -961,6 +1135,7 @@ const Chat = ({
                               <span className="mr-2">
                                 ×
                               </span>
+
                               Delete
                             </button>
                           </div>
@@ -1023,15 +1198,23 @@ const Chat = ({
                             )
                           }
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") {
+                            if (
+                              e.key ===
+                              "Enter"
+                            ) {
                               updateHandler(
                                 msg._id
                               );
                             }
 
-                            if (e.key === "Escape") {
+                            if (
+                              e.key ===
+                              "Escape"
+                            ) {
                               setEditId(null);
-                              setEditMessage("");
+                              setEditMessage(
+                                ""
+                              );
                             }
                           }}
                           className="
@@ -1060,7 +1243,9 @@ const Chat = ({
                             type="button"
                             onClick={() => {
                               setEditId(null);
-                              setEditMessage("");
+                              setEditMessage(
+                                ""
+                              );
                             }}
                             className="
                               px-3
@@ -1169,7 +1354,9 @@ const Chat = ({
                             }
                           `}
                         >
-                          {msg.seen ? "✓✓" : "✓"}
+                          {msg.seen
+                            ? "✓✓"
+                            : "✓"}
                         </span>
                       )}
                     </div>
@@ -1217,7 +1404,9 @@ const Chat = ({
         >
           <div className="relative inline-block">
             <img
-              src={URL.createObjectURL(selectedImage)}
+              src={URL.createObjectURL(
+                selectedImage
+              )}
               alt="preview"
               className="
                 w-20
@@ -1231,7 +1420,9 @@ const Chat = ({
 
             <button
               type="button"
-              onClick={removeSelectedImage}
+              onClick={
+                removeSelectedImage
+              }
               className="
                 absolute
                 -top-2
@@ -1348,7 +1539,9 @@ const Chat = ({
 
             <button
               type="button"
-              onClick={handleSendMessage}
+              onClick={
+                handleSendMessage
+              }
               disabled={sending}
               className="
                 w-10
