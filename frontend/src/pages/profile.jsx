@@ -132,7 +132,7 @@ const Profile = () => {
       >
       
          <button
-      onClick={() => navigate("/")}
+      onClick={() => navigate("/home")}
       className="flex items-center gap-3 px-4 py-3 text-gray-600
                  hover:text-black hover:bg-gray-100 rounded-xl
                  transition-all duration-200"

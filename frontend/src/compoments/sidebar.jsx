@@ -49,12 +49,22 @@ const Sidebar = ({
 
   const [loading, setLoading] = useState(true);
 
+  // latest message time
   const [latestTimes, setLatestTimes] = useState({});
+
+  // latest message text
+  const [latestMessages, setLatestMessages] = useState({});
+
+  // unread
   const [unreadCounts, setUnreadCounts] = useState({});
+
+  // favourites
   const [favouriteUserIds, setFavouriteUserIds] = useState([]);
 
+  // online users
   const [onlineUsers, setOnlineUsers] = useState([]);
 
+  // settings
   const [showSettings, setShowSettings] = useState(false);
 
   // Add user modal
@@ -80,6 +90,8 @@ const Sidebar = ({
 
       setUsers(contactList);
       setAllUsers(contactList);
+
+      return contactList;
     } catch (error) {
       console.error(
         "Load users error:",
@@ -88,6 +100,8 @@ const Sidebar = ({
 
       setUsers([]);
       setAllUsers([]);
+
+      return [];
     }
   };
 
@@ -99,31 +113,41 @@ const Sidebar = ({
     try {
       const data = await getCurrentUser();
 
-      setCurrentUser(data);
+      const user = data?.user || data;
+
+      setCurrentUser(user);
+
+      return user;
     } catch (error) {
       console.error(
         "Load current user error:",
         error
       );
+
+      return null;
     }
   };
 
   // =====================================================
-  // LOAD LATEST MESSAGE TIME
+  // GET LAST MESSAGE
   // =====================================================
 
-  const loadLatestMessageTimes = async (
-    userList
-  ) => {
+  const loadLatestMessages = async (userList) => {
     try {
       const times = {};
+      const lastMessages = {};
 
       await Promise.all(
         userList.map(async (user) => {
           try {
-            const messages = await getMessages(
+            const data = await getMessages(
               user._id
             );
+
+            const messages =
+              data?.messages ||
+              data ||
+              [];
 
             if (
               Array.isArray(messages) &&
@@ -132,10 +156,27 @@ const Sidebar = ({
               const lastMessage =
                 messages[messages.length - 1];
 
-              times[user._id] =
-                new Date(
-                  lastMessage.createdAt
-                ).getTime();
+              // latest time
+              if (lastMessage.createdAt) {
+                times[user._id] =
+                  new Date(
+                    lastMessage.createdAt
+                  ).getTime();
+              }
+
+              // latest message
+              if (lastMessage.image) {
+                lastMessages[user._id] =
+                  "📷 Photo";
+              } else if (
+                lastMessage.text
+              ) {
+                lastMessages[user._id] =
+                  lastMessage.text;
+              } else {
+                lastMessages[user._id] =
+                  "Message";
+              }
             }
           } catch (error) {
             console.error(
@@ -147,37 +188,30 @@ const Sidebar = ({
       );
 
       setLatestTimes(times);
+      setLatestMessages(lastMessages);
+
+      return {
+        times,
+        lastMessages,
+      };
     } catch (error) {
       console.error(
-        "Latest message error:",
+        "Latest messages error:",
         error
       );
+
+      return {
+        times: {},
+        lastMessages: {},
+      };
     }
-  };
-
-  // =====================================================
-  // SORT USERS BY LATEST MESSAGE
-  // =====================================================
-
-  const sortUsersByLatestMessage = (
-    userList,
-    times = latestTimes
-  ) => {
-    return [...userList].sort((a, b) => {
-      const timeA = times[a._id] || 0;
-      const timeB = times[b._id] || 0;
-
-      return timeB - timeA;
-    });
   };
 
   // =====================================================
   // LOAD UNREAD COUNTS
   // =====================================================
 
-  const loadUnreadCounts = async (
-    userList
-  ) => {
+  const loadUnreadCounts = async (userList) => {
     try {
       const counts = {};
 
@@ -185,10 +219,14 @@ const Sidebar = ({
         userList.map(async (user) => {
           try {
             const result =
-              await getUnreadCount(user._id);
+              await getUnreadCount(
+                user._id
+              );
 
+            // IMPORTANT:
+            // Backend returns unreadCount
             counts[user._id] =
-              result?.count || 0;
+              result?.unreadCount || 0;
           } catch (error) {
             counts[user._id] = 0;
           }
@@ -214,11 +252,16 @@ const Sidebar = ({
         await getFavouriteMessages();
 
       if (
-        !Array.isArray(favouriteMessages)
+        !Array.isArray(
+          favouriteMessages
+        )
       ) {
         setFavouriteUserIds([]);
         return;
       }
+
+      const currentId =
+        currentUser?._id;
 
       const ids = [
         ...new Set(
@@ -226,14 +269,15 @@ const Sidebar = ({
             .map((message) => {
               const sender =
                 message.senderId?._id ||
-                message.senderId;
+                message.senderId ||
+                message.sender?._id ||
+                message.sender;
 
               const receiver =
                 message.receiverId?._id ||
-                message.receiverId;
-
-              const currentId =
-                currentUser?._id;
+                message.receiverId ||
+                message.receiver?._id ||
+                message.receiver;
 
               if (
                 String(sender) ===
@@ -267,8 +311,28 @@ const Sidebar = ({
     try {
       setLoading(true);
 
-      await loadCurrentUser();
-      await loadUsers();
+      const user =
+        await loadCurrentUser();
+
+      const contactList =
+        await loadUsers();
+
+      if (
+        contactList.length > 0
+      ) {
+        await Promise.all([
+          loadLatestMessages(
+            contactList
+          ),
+          loadUnreadCounts(
+            contactList
+          ),
+        ]);
+      }
+
+      if (user?._id) {
+        await loadFavouriteUsers();
+      }
     } catch (error) {
       console.error(
         "Sidebar loading error:",
@@ -288,31 +352,6 @@ const Sidebar = ({
   }, []);
 
   // =====================================================
-  // LOAD MESSAGE DATA WHEN USERS CHANGE
-  // =====================================================
-
-  useEffect(() => {
-    if (!users.length) {
-      setLatestTimes({});
-      setUnreadCounts({});
-      return;
-    }
-
-    loadLatestMessageTimes(users);
-    loadUnreadCounts(users);
-  }, [users]);
-
-  // =====================================================
-  // LOAD FAVOURITES
-  // =====================================================
-
-  useEffect(() => {
-    if (currentUser?._id) {
-      loadFavouriteUsers();
-    }
-  }, [currentUser?._id]);
-
-  // =====================================================
   // ONLINE USERS
   // =====================================================
 
@@ -326,7 +365,9 @@ const Sidebar = ({
       }
 
       setOnlineUsers(
-        userIds.map((id) => String(id))
+        userIds.map((id) =>
+          String(id)
+        )
       );
     };
 
@@ -344,11 +385,186 @@ const Sidebar = ({
   }, []);
 
   // =====================================================
+  // REALTIME NEW MESSAGE
+  // =====================================================
+
+  useEffect(() => {
+    const handleNewMessage = (
+      message
+    ) => {
+      if (!message) {
+        return;
+      }
+
+      const senderId =
+        message.senderId?._id ||
+        message.senderId ||
+        message.sender?._id ||
+        message.sender;
+
+      const receiverId =
+        message.receiverId?._id ||
+        message.receiverId ||
+        message.receiver?._id ||
+        message.receiver;
+
+      if (!currentUser?._id) {
+        return;
+      }
+
+      const myId =
+        String(currentUser._id);
+
+      const sender = String(
+        senderId
+      );
+
+      const receiver = String(
+        receiverId
+      );
+
+      let otherUserId = null;
+
+      if (sender === myId) {
+        otherUserId = receiver;
+      } else if (receiver === myId) {
+        otherUserId = sender;
+      } else {
+        return;
+      }
+
+      // ============================================
+      // LAST MESSAGE
+      // ============================================
+
+      let preview = "Message";
+
+      if (message.image) {
+        preview = "📷 Photo";
+      } else if (message.text) {
+        preview = message.text;
+      }
+
+      setLatestMessages((prev) => ({
+        ...prev,
+        [otherUserId]: preview,
+      }));
+
+      // ============================================
+      // MESSAGE TIME
+      // ============================================
+
+      if (message.createdAt) {
+        setLatestTimes((prev) => ({
+          ...prev,
+          [otherUserId]:
+            new Date(
+              message.createdAt
+            ).getTime(),
+        }));
+      }
+
+      // ============================================
+      // UNREAD COUNT
+      //
+      // Only increase unread when:
+      // message is from OTHER USER
+      // and chat is NOT open
+      // ============================================
+
+      const isIncoming =
+        sender !== myId;
+
+      const isChatOpen =
+        String(
+          selectedUser?._id
+        ) === otherUserId;
+
+      if (
+        isIncoming &&
+        !isChatOpen
+      ) {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [otherUserId]:
+            (prev[otherUserId] || 0) +
+            1,
+        }));
+      }
+
+      // ============================================
+      // MOVE USER TO TOP
+      // ============================================
+
+      setUsers((prev) => {
+        const existing =
+          prev.find(
+            (user) =>
+              String(user._id) ===
+              otherUserId
+          );
+
+        if (!existing) {
+          return prev;
+        }
+
+        return [
+          existing,
+          ...prev.filter(
+            (user) =>
+              String(user._id) !==
+              otherUserId
+          ),
+        ];
+      });
+
+      setAllUsers((prev) => {
+        const existing =
+          prev.find(
+            (user) =>
+              String(user._id) ===
+              otherUserId
+          );
+
+        if (!existing) {
+          return prev;
+        }
+
+        return [
+          existing,
+          ...prev.filter(
+            (user) =>
+              String(user._id) !==
+              otherUserId
+          ),
+        ];
+      });
+    };
+
+    socket.on(
+      "new-message",
+      handleNewMessage
+    );
+
+    return () => {
+      socket.off(
+        "new-message",
+        handleNewMessage
+      );
+    };
+  }, [
+    currentUser?._id,
+    selectedUser?._id,
+  ]);
+
+  // =====================================================
   // REALTIME CONTACT ADDED
   // =====================================================
 
   useEffect(() => {
-    const handleContactAdded = (data) => {
+    const handleContactAdded = (
+      data
+    ) => {
       if (!data?.user?._id) {
         return;
       }
@@ -359,10 +575,6 @@ const Sidebar = ({
         "👤 New contact received:",
         newUser
       );
-
-      // -----------------------------------------------
-      // ADD TO ALL USERS
-      // -----------------------------------------------
 
       setAllUsers((prev) => {
         const exists = prev.some(
@@ -380,10 +592,6 @@ const Sidebar = ({
           ...prev,
         ];
       });
-
-      // -----------------------------------------------
-      // ADD TO VISIBLE USERS
-      // -----------------------------------------------
 
       setUsers((prev) => {
         const exists = prev.some(
@@ -421,61 +629,106 @@ const Sidebar = ({
   // =====================================================
 
   useEffect(() => {
-    const delay = setTimeout(async () => {
-      if (!searchTerm.trim()) {
-        setUsers(allUsers);
-        return;
-      }
+    const delay = setTimeout(
+      async () => {
+        if (!searchTerm.trim()) {
+          setUsers(
+            sortUsersByLatestMessage(
+              allUsers
+            )
+          );
 
-      try {
-        const data = await searchUser(
-          searchTerm.trim()
-        );
+          return;
+        }
 
-        setUsers(
-          Array.isArray(data)
-            ? data
-            : []
-        );
-      } catch (error) {
-        console.error(
-          "Search error:",
-          error
-        );
+        try {
+          const data =
+            await searchUser(
+              searchTerm.trim()
+            );
 
-        setUsers([]);
-      }
-    }, 300);
+          const result =
+            Array.isArray(data)
+              ? data
+              : [];
+
+          setUsers(
+            sortUsersByLatestMessage(
+              result
+            )
+          );
+        } catch (error) {
+          console.error(
+            "Search error:",
+            error
+          );
+
+          setUsers([]);
+        }
+      },
+      300
+    );
 
     return () =>
       clearTimeout(delay);
   }, [
     searchTerm,
     allUsers,
+    latestTimes,
   ]);
+
+  // =====================================================
+  // SORT USERS
+  // =====================================================
+
+  const sortUsersByLatestMessage = (
+    userList,
+    times = latestTimes
+  ) => {
+    return [...userList].sort(
+      (a, b) => {
+        const timeA =
+          times[a._id] || 0;
+
+        const timeB =
+          times[b._id] || 0;
+
+        return timeB - timeA;
+      }
+    );
+  };
 
   // =====================================================
   // FILTER USERS
   // =====================================================
 
   const getFilteredUsers = () => {
+    let result = users;
+
     if (activeTab === "unread") {
-      return users.filter(
+      result = users.filter(
         (user) =>
-          (unreadCounts[user._id] || 0) >
-          0
+          (unreadCounts[
+            user._id
+          ] || 0) > 0
       );
     }
 
-    if (activeTab === "favourites") {
-      return users.filter((user) =>
-        favouriteUserIds.includes(
-          String(user._id)
-        )
+    if (
+      activeTab ===
+      "favourites"
+    ) {
+      result = users.filter(
+        (user) =>
+          favouriteUserIds.includes(
+            String(user._id)
+          )
       );
     }
 
-    return users;
+    return sortUsersByLatestMessage(
+      result
+    );
   };
 
   const filteredUsers =
@@ -490,6 +743,8 @@ const Sidebar = ({
   ) => {
     setSelectedUser(user);
 
+    // VERY IMPORTANT
+    // Remove unread badge immediately
     setUnreadCounts((prev) => ({
       ...prev,
       [user._id]: 0,
@@ -497,43 +752,53 @@ const Sidebar = ({
   };
 
   // =====================================================
-  // REFRESH CHAT ORDER
+  // REFRESH SIDEBAR
   // =====================================================
 
-  const refreshChatOrder = async () => {
-    try {
-      const data = await getUsers();
+  const refreshChatOrder =
+    async () => {
+      try {
+        const data =
+          await getUsers();
 
-      const contactList =
-        Array.isArray(data)
-          ? data
-          : [];
+        const contactList =
+          Array.isArray(data)
+            ? data
+            : [];
 
-      setAllUsers(contactList);
-      setUsers(contactList);
+        setAllUsers(
+          contactList
+        );
 
-      await loadLatestMessageTimes(
-        contactList
-      );
+        setUsers(
+          contactList
+        );
 
-      await loadUnreadCounts(
-        contactList
-      );
+        await Promise.all([
+          loadLatestMessages(
+            contactList
+          ),
+          loadUnreadCounts(
+            contactList
+          ),
+        ]);
 
-      await loadFavouriteUsers();
-    } catch (error) {
-      console.error(
-        "Refresh sidebar error:",
-        error
-      );
-    }
-  };
+        await loadFavouriteUsers();
+      } catch (error) {
+        console.error(
+          "Refresh sidebar error:",
+          error
+        );
+      }
+    };
 
   // =====================================================
   // ADD CONTACT
   // =====================================================
 
-  const handleAddContact = async (e) => {
+  const handleAddContact = async (
+    e
+  ) => {
     e.preventDefault();
 
     setContactError("");
@@ -543,6 +808,7 @@ const Sidebar = ({
       setContactError(
         "Please enter Gmail"
       );
+
       return;
     }
 
@@ -574,7 +840,8 @@ const Sidebar = ({
       );
 
       setContactError(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           "Unable to add user"
       );
     } finally {
@@ -595,14 +862,16 @@ const Sidebar = ({
   };
 
   // =====================================================
-  // USER TIME
+  // FORMAT TIME
   // =====================================================
 
   const formatTime = (userId) => {
     const time =
       latestTimes[userId];
 
-    if (!time) return "";
+    if (!time) {
+      return "";
+    }
 
     const date = new Date(time);
 
@@ -616,15 +885,26 @@ const Sidebar = ({
   };
 
   // =====================================================
+  // LAST MESSAGE PREVIEW
+  // =====================================================
+
+  const getLastMessage = (
+    userId
+  ) => {
+    return (
+      latestMessages[userId] ||
+      "Start a conversation"
+    );
+  };
+
+  // =====================================================
   // RENDER
   // =====================================================
 
   return (
     <div className="w-full h-full bg-white flex flex-col relative">
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* HEADER */}
 
       <div className="px-4 py-4 border-b border-gray-100">
 
@@ -708,8 +988,6 @@ const Sidebar = ({
                   "
                 >
 
-                  {/* PROFILE */}
-
                   <button
                     type="button"
                     onClick={() => {
@@ -732,11 +1010,11 @@ const Sidebar = ({
                     Profile Settings
                   </button>
 
-                  {/* LOGOUT */}
-
                   <button
                     type="button"
-                    onClick={handleLogout}
+                    onClick={
+                      handleLogout
+                    }
                     className="
                       w-full
                       px-4
@@ -762,9 +1040,7 @@ const Sidebar = ({
 
         </div>
 
-        {/* =================================================
-            SEARCH
-        ================================================= */}
+        {/* SEARCH */}
 
         <div
           className="
@@ -778,6 +1054,7 @@ const Sidebar = ({
             rounded-xl
           "
         >
+
           <FiSearch className="text-gray-400 text-lg flex-shrink-0" />
 
           <input
@@ -811,11 +1088,10 @@ const Sidebar = ({
               <FiX />
             </button>
           )}
+
         </div>
 
-        {/* =================================================
-            FILTER TABS
-        ================================================= */}
+        {/* FILTERS */}
 
         <div className="flex items-center gap-2 mt-4">
 
@@ -854,7 +1130,8 @@ const Sidebar = ({
               font-medium
               transition
               ${
-                activeTab === "unread"
+                activeTab ===
+                "unread"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }
@@ -878,7 +1155,8 @@ const Sidebar = ({
               font-medium
               transition
               ${
-                activeTab === "favourites"
+                activeTab ===
+                "favourites"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }
@@ -891,24 +1169,18 @@ const Sidebar = ({
 
       </div>
 
-      {/* =================================================
-          USERS LIST
-      ================================================= */}
+      {/* USERS */}
 
       <div className="flex-1 overflow-y-auto">
 
         {loading ? (
-
           <div className="flex items-center justify-center py-10">
             <p className="text-sm text-gray-400">
               Loading chats...
             </p>
           </div>
-
-        ) : filteredUsers.length === 0 ? (
-
-          /* EMPTY STATE */
-
+        ) : filteredUsers.length ===
+          0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
 
             <div
@@ -962,14 +1234,11 @@ const Sidebar = ({
             </button>
 
           </div>
-
         ) : (
-
           <div className="py-2">
 
             {filteredUsers.map(
               (user) => {
-
                 const isSelected =
                   String(
                     selectedUser?._id
@@ -1032,8 +1301,6 @@ const Sidebar = ({
                         "
                       />
 
-                      {/* ONLINE DOT */}
-
                       <span
                         className={`
                           absolute
@@ -1054,7 +1321,7 @@ const Sidebar = ({
 
                     </div>
 
-                    {/* USER INFO */}
+                    {/* USER */}
 
                     <div className="flex-1 min-w-0">
 
@@ -1081,15 +1348,22 @@ const Sidebar = ({
 
                       <div className="flex items-center justify-between gap-2 mt-1">
 
+                        {/* LAST MESSAGE */}
+
                         <p
-                          className="
+                          className={`
                             text-xs
-                            text-gray-400
                             truncate
-                          "
+                            ${
+                              unread > 0
+                                ? "text-gray-700 font-medium"
+                                : "text-gray-400"
+                            }
+                          `}
                         >
-                          {user.bio ||
-                            "Hey! I am using WebChat"}
+                          {getLastMessage(
+                            user._id
+                          )}
                         </p>
 
                         {/* UNREAD */}
@@ -1101,9 +1375,10 @@ const Sidebar = ({
                               h-5
                               px-1.5
                               rounded-full
-                              bg-gray-900
+                              bg-blue-600
                               text-white
                               text-[10px]
+                              font-semibold
                               flex
                               items-center
                               justify-center
@@ -1126,14 +1401,11 @@ const Sidebar = ({
             )}
 
           </div>
-
         )}
 
       </div>
 
-      {/* =================================================
-          ADD USER MODAL
-      ================================================= */}
+      {/* ADD USER MODAL */}
 
       {showAddContact && (
         <div
@@ -1167,12 +1439,9 @@ const Sidebar = ({
             }
           >
 
-            {/* MODAL HEADER */}
-
             <div className="flex items-center justify-between">
 
               <div>
-
                 <h2 className="text-lg font-semibold text-gray-800">
                   Add User
                 </h2>
@@ -1180,7 +1449,6 @@ const Sidebar = ({
                 <p className="text-xs text-gray-400 mt-1">
                   Enter their registered Gmail
                 </p>
-
               </div>
 
               <button
@@ -1204,8 +1472,6 @@ const Sidebar = ({
               </button>
 
             </div>
-
-            {/* FORM */}
 
             <form
               onSubmit={
@@ -1242,23 +1508,17 @@ const Sidebar = ({
                 "
               />
 
-              {/* ERROR */}
-
               {contactError && (
                 <p className="mt-2 text-xs text-red-500">
                   {contactError}
                 </p>
               )}
 
-              {/* SUCCESS */}
-
               {contactSuccess && (
                 <p className="mt-2 text-xs text-green-600">
                   {contactSuccess}
                 </p>
               )}
-
-              {/* BUTTON */}
 
               <button
                 type="submit"
