@@ -24,6 +24,7 @@ const Chat = ({
   selectedUser,
   setSelectedUser,
   setShowRightSidebar,
+  setChatMessages,
 }) => {
   const scrollEnd = useRef(null);
 
@@ -39,6 +40,16 @@ const Chat = ({
 
   const [editId, setEditId] = useState(null);
   const [editMessage, setEditMessage] = useState("");
+
+  // ==========================================
+  // SEND CURRENT CHAT MESSAGES TO HOME
+  // ==========================================
+
+  useEffect(() => {
+    if (setChatMessages) {
+      setChatMessages(messages);
+    }
+  }, [messages, setChatMessages]);
 
   // ==========================================
   // CURRENT USER
@@ -90,12 +101,10 @@ const Chat = ({
       );
     };
 
-    // socket already connected
     if (socket.connected) {
       registerUser();
     }
 
-    // socket reconnect
     socket.on(
       "connect",
       registerUser
@@ -163,7 +172,7 @@ const Chat = ({
       );
 
       // ==========================================
-      // CHECK WHETHER MESSAGE BELONGS TO CURRENT CHAT
+      // CHECK CURRENT CHAT
       // ==========================================
 
       const isFromSelectedUser =
@@ -230,12 +239,6 @@ const Chat = ({
             console.log(
               "👀 MESSAGE MARKED SEEN"
             );
-
-            /*
-              Tell sender that message was seen.
-              Backend will send message-seen-update
-              back to sender.
-            */
 
             socket.emit(
               "message-seen",
@@ -366,6 +369,7 @@ const Chat = ({
 
   useEffect(() => {
     if (!selectedUser?._id) {
+      setMessages([]);
       return;
     }
 
@@ -385,7 +389,6 @@ const Chat = ({
 
         setMessages(messageList);
 
-        // Mark received messages as seen
         await markMessagesSeen(
           selectedUser._id
         );
@@ -461,7 +464,7 @@ const Chat = ({
       );
 
       // ==========================================
-      // SHOW MESSAGE IMMEDIATELY FOR SENDER
+      // SHOW MESSAGE IMMEDIATELY
       // ==========================================
 
       setMessages((prev) => {
@@ -485,7 +488,7 @@ const Chat = ({
       });
 
       // ==========================================
-      // SEND MESSAGE THROUGH SOCKET
+      // SEND THROUGH SOCKET
       // ==========================================
 
       if (socket.connected) {
@@ -738,6 +741,7 @@ const Chat = ({
         "
       >
         <div className="text-center max-w-sm">
+
           <div
             className="
               w-20
@@ -780,6 +784,7 @@ const Chat = ({
             from the left to start
             chatting.
           </p>
+
         </div>
       </div>
     );
@@ -800,7 +805,8 @@ const Chat = ({
         overflow-hidden
       "
     >
-      {/* HEADER */}
+
+      {/* ================= HEADER ================= */}
 
       <div
         className="
@@ -816,6 +822,7 @@ const Chat = ({
           flex-shrink-0
         "
       >
+
         <div
           className="
             flex
@@ -824,6 +831,7 @@ const Chat = ({
             min-w-0
           "
         >
+
           {/* MOBILE BACK */}
 
           <button
@@ -857,6 +865,7 @@ const Chat = ({
           {/* PROFILE */}
 
           <div className="relative flex-shrink-0">
+
             <img
               src={
                 selectedUser.profilePic ||
@@ -892,11 +901,13 @@ const Chat = ({
                 }
               `}
             />
+
           </div>
 
           {/* USER INFO */}
 
           <div className="min-w-0">
+
             <p
               className="
                 font-semibold
@@ -924,7 +935,9 @@ const Chat = ({
                 ? "Active now"
                 : "Offline"}
             </p>
+
           </div>
+
         </div>
 
         {/* RIGHT SIDEBAR */}
@@ -932,9 +945,7 @@ const Chat = ({
         <button
           type="button"
           onClick={() =>
-            setShowRightSidebar(
-              true
-            )
+            setShowRightSidebar(true)
           }
           className="
             w-9
@@ -958,9 +969,10 @@ const Chat = ({
         >
           ⋮
         </button>
+
       </div>
 
-      {/* MESSAGE AREA */}
+      {/* ================= MESSAGE AREA ================= */}
 
       <div
         className="
@@ -974,7 +986,9 @@ const Chat = ({
           scrollbar-track-transparent
         "
       >
+
         {loading ? (
+
           <div
             className="
               h-full
@@ -987,8 +1001,9 @@ const Chat = ({
               Loading messages...
             </div>
           </div>
-        ) : messages.length ===
-          0 ? (
+
+        ) : messages.length === 0 ? (
+
           <div
             className="
               h-full
@@ -997,7 +1012,9 @@ const Chat = ({
               justify-center
             "
           >
+
             <div className="text-center">
+
               <div
                 className="
                   w-16
@@ -1039,9 +1056,13 @@ const Chat = ({
                 Start a new
                 conversation
               </p>
+
             </div>
+
           </div>
+
         ) : (
+
           <div
             className="
               max-w-4xl
@@ -1051,8 +1072,10 @@ const Chat = ({
               gap-5
             "
           >
+
             {messages.map(
               (msg, index) => {
+
                 const senderId =
                   msg.senderId?._id ||
                   msg.senderId ||
@@ -1067,6 +1090,7 @@ const Chat = ({
                   );
 
                 return (
+
                   <div
                     key={
                       msg._id ||
@@ -1084,6 +1108,7 @@ const Chat = ({
                       }
                     `}
                   >
+
                     {/* OTHER USER AVATAR */}
 
                     {!isMe && (
@@ -1112,6 +1137,7 @@ const Chat = ({
                         sm:max-w-[65%]
                       "
                     >
+
                       {/* FAVOURITE */}
 
                       {msg.isFavourite && (
@@ -1154,6 +1180,7 @@ const Chat = ({
                             e.stopPropagation()
                           }
                         >
+
                           <button
                             type="button"
                             onClick={() =>
@@ -1186,6 +1213,7 @@ const Chat = ({
 
                           {showMenu ===
                             msg._id && (
+
                             <div
                               onClick={(e) =>
                                 e.stopPropagation()
@@ -1204,6 +1232,7 @@ const Chat = ({
                                 overflow-hidden
                               "
                             >
+
                               {/* FAVOURITE */}
 
                               <button
@@ -1299,8 +1328,10 @@ const Chat = ({
 
                                 Delete
                               </button>
+
                             </div>
                           )}
+
                         </div>
                       )}
 
@@ -1318,6 +1349,7 @@ const Chat = ({
                             }
                           `}
                         >
+
                           <img
                             src={msg.image}
                             alt="message"
@@ -1329,6 +1361,7 @@ const Chat = ({
                               shadow-sm
                             "
                           />
+
                         </div>
                       )}
 
@@ -1336,6 +1369,7 @@ const Chat = ({
 
                       {editId ===
                       msg._id ? (
+
                         <div
                           onClick={(e) =>
                             e.stopPropagation()
@@ -1350,6 +1384,7 @@ const Chat = ({
                             w-[280px]
                           "
                         >
+
                           <input
                             autoFocus
                             type="text"
@@ -1363,6 +1398,7 @@ const Chat = ({
                               )
                             }
                             onKeyDown={(e) => {
+
                               if (
                                 e.key ===
                                 "Enter"
@@ -1384,6 +1420,7 @@ const Chat = ({
                                   ""
                                 );
                               }
+
                             }}
                             className="
                               w-full
@@ -1407,6 +1444,7 @@ const Chat = ({
                               mt-2
                             "
                           >
+
                             <button
                               type="button"
                               onClick={() => {
@@ -1449,9 +1487,13 @@ const Chat = ({
                             >
                               Save
                             </button>
+
                           </div>
+
                         </div>
+
                       ) : (
+
                         msg.text && (
                           <div
                             className={`
@@ -1483,6 +1525,7 @@ const Chat = ({
                             {msg.text}
                           </div>
                         )
+
                       )}
 
                       {/* TIME + TICKS */}
@@ -1501,6 +1544,7 @@ const Chat = ({
                           }
                         `}
                       >
+
                         <span
                           className="
                             text-[10px]
@@ -1528,7 +1572,9 @@ const Chat = ({
                               : "✓"}
                           </span>
                         )}
+
                       </div>
+
                     </div>
 
                     {/* MY AVATAR */}
@@ -1549,6 +1595,7 @@ const Chat = ({
                         "
                       />
                     )}
+
                   </div>
                 );
               }
@@ -1557,11 +1604,14 @@ const Chat = ({
             <div
               ref={scrollEnd}
             />
+
           </div>
+
         )}
+
       </div>
 
-      {/* IMAGE PREVIEW */}
+      {/* ================= IMAGE PREVIEW ================= */}
 
       {selectedImage && (
         <div
@@ -1574,7 +1624,9 @@ const Chat = ({
             border-gray-100
           "
         >
+
           <div className="relative inline-block">
+
             <img
               src={URL.createObjectURL(
                 selectedImage
@@ -1613,11 +1665,13 @@ const Chat = ({
             >
               ×
             </button>
+
           </div>
+
         </div>
       )}
 
-      {/* MESSAGE INPUT */}
+      {/* ================= MESSAGE INPUT ================= */}
 
       <div
         className="
@@ -1631,7 +1685,9 @@ const Chat = ({
           flex-shrink-0
         "
       >
+
         <div className="max-w-4xl mx-auto">
+
           <div
             className="
               flex
@@ -1648,6 +1704,7 @@ const Chat = ({
               transition
             "
           >
+
             {/* GALLERY */}
 
             <label
@@ -1665,6 +1722,7 @@ const Chat = ({
                 flex-shrink-0
               "
             >
+
               <img
                 src={galary}
                 alt="gallery"
@@ -1675,6 +1733,7 @@ const Chat = ({
                   opacity-60
                 "
               />
+
             </label>
 
             <input
@@ -1736,6 +1795,7 @@ const Chat = ({
                 flex-shrink-0
               "
             >
+
               <img
                 src={send}
                 alt="send"
@@ -1745,7 +1805,9 @@ const Chat = ({
                   object-contain
                 "
               />
+
             </button>
+
           </div>
 
           <p
@@ -1758,8 +1820,11 @@ const Chat = ({
           >
             Press Enter to send
           </p>
+
         </div>
+
       </div>
+
     </div>
   );
 };

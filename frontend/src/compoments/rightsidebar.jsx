@@ -1,12 +1,12 @@
 import React from "react";
 
 import dummy from "../assets/avrar.jpg";
-import { imagesDummyData } from "../assests";
 import { useNavigate } from "react-router-dom";
 
 const Rightsidebar = ({
   selectedUser,
   setShowRightSidebar,
+  messages = [],
 }) => {
   const navigate = useNavigate();
 
@@ -17,13 +17,25 @@ const Rightsidebar = ({
   const handleLogout = () => {
     localStorage.removeItem("token");
 
-    console.log("TOKEN AFTER LOGOUT:", localStorage.getItem("token"));
+    console.log(
+      "TOKEN AFTER LOGOUT:",
+      localStorage.getItem("token")
+    );
 
     navigate("/login");
   };
 
+  // ==========================================
+  // ACTUAL SHARED MEDIA
+  // ==========================================
+
+  const sharedImages = messages
+    .filter((msg) => msg.image)
+    .map((msg) => msg.image);
+
   return (
     <div className="w-full h-full bg-white flex flex-col">
+
       {/* ================= HEADER ================= */}
 
       <div
@@ -38,8 +50,6 @@ const Rightsidebar = ({
           shrink-0
         "
       >
-        {/* CLOSE BUTTON */}
-
         <button
           type="button"
           onClick={() => setShowRightSidebar(false)}
@@ -79,9 +89,8 @@ const Rightsidebar = ({
           border-gray-200
         "
       >
-        {/* PROFILE IMAGE */}
-
         <div className="relative group">
+
           <img
             src={selectedUser.profilePic || dummy}
             alt="profile"
@@ -100,8 +109,6 @@ const Rightsidebar = ({
             "
           />
 
-          {/* ONLINE STATUS */}
-
           <span
             className="
               absolute
@@ -115,9 +122,8 @@ const Rightsidebar = ({
               rounded-full
             "
           />
-        </div>
 
-        {/* NAME */}
+        </div>
 
         <h1
           className="
@@ -129,8 +135,6 @@ const Rightsidebar = ({
         >
           {selectedUser.fullName}
         </h1>
-
-        {/* EMAIL */}
 
         <p
           className="
@@ -145,13 +149,9 @@ const Rightsidebar = ({
           {selectedUser.email}
         </p>
 
-        {/* STATUS */}
-
         <p className="text-xs text-green-500 font-medium mt-1">
           Active now
         </p>
-
-        {/* BIO */}
 
         <p
           className="
@@ -165,58 +165,112 @@ const Rightsidebar = ({
         >
           {selectedUser.bio || "No bio available"}
         </p>
+
       </div>
 
-      {/* ================= MEDIA ================= */}
+      {/* ================= SHARED MEDIA ================= */}
 
       <div className="flex-1 px-5 py-6 overflow-y-auto">
+
         <div className="flex items-center justify-between mb-4">
+
           <h2 className="text-sm font-semibold text-gray-800">
             Shared Media
           </h2>
 
           <span className="text-xs text-gray-400">
-            {imagesDummyData.length} files
+            {sharedImages.length} files
           </span>
+
         </div>
 
-        {/* MEDIA GRID */}
+        {/* ================= NO MEDIA ================= */}
 
-        <div className="grid grid-cols-2 gap-2">
-          {imagesDummyData.map((url, index) => (
+        {sharedImages.length === 0 ? (
+
+          <div
+            className="
+              flex
+              flex-col
+              items-center
+              justify-center
+              py-16
+              text-center
+            "
+          >
             <div
-              key={index}
-              onClick={() => window.open(url, "_blank")}
               className="
-                aspect-square
-                rounded-lg
-                overflow-hidden
+                w-14
+                h-14
+                rounded-full
                 bg-gray-100
-                cursor-pointer
-                border
-                border-gray-200
-                group
-                transition-all
-                duration-300
-                hover:-translate-y-1
-                hover:shadow-md
+                flex
+                items-center
+                justify-center
+                text-2xl
+                mb-3
               "
             >
-              <img
-                src={url}
-                alt="shared media"
-                className="
-                  w-full
-                  h-full
-                  object-cover
-                  transition-transform
-                  duration-500
-                  group-hover:scale-110
-                "
-              />
+              🖼️
             </div>
-          ))}
-        </div>
+
+            <p className="text-sm font-medium text-gray-500">
+              No shared media
+            </p>
+
+            <p className="text-xs text-gray-400 mt-1">
+              Photos shared in this chat will appear here
+            </p>
+          </div>
+
+        ) : (
+
+          /* ================= MEDIA GRID ================= */
+
+          <div className="grid grid-cols-2 gap-2">
+
+            {sharedImages.map((url, index) => (
+
+              <div
+                key={`${url}-${index}`}
+                onClick={() => window.open(url, "_blank")}
+                className="
+                  aspect-square
+                  rounded-lg
+                  overflow-hidden
+                  bg-gray-100
+                  cursor-pointer
+                  border
+                  border-gray-200
+                  group
+                  transition-all
+                  duration-300
+                  hover:-translate-y-1
+                  hover:shadow-md
+                "
+              >
+
+                <img
+                  src={url}
+                  alt="shared media"
+                  className="
+                    w-full
+                    h-full
+                    object-cover
+                    transition-transform
+                    duration-500
+                    group-hover:scale-110
+                  "
+                />
+
+              </div>
+
+            ))}
+
+          </div>
+
+        )}
+
       </div>
 
       {/* ================= LOGOUT ================= */}
@@ -229,6 +283,7 @@ const Rightsidebar = ({
           shrink-0
         "
       >
+
         <button
           type="button"
           onClick={handleLogout}
@@ -252,7 +307,9 @@ const Rightsidebar = ({
         >
           Logout Yourself
         </button>
+
       </div>
+
     </div>
   );
 };

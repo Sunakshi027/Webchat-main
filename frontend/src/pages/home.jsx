@@ -5,26 +5,34 @@ import Chat from "../compoments/chat";
 import Rightsidebar from "../compoments/rightsidebar";
 
 import { useNavigate } from "react-router-dom";
+import { authCheck } from "./auth";
 
 const Home = () => {
   const [selectedUser, setSelectedUser] = useState(null);
-  const [showRightSidebar, setShowRightSidebar] = useState(false);
+
+  const [showRightSidebar, setShowRightSidebar] =
+    useState(false);
+
+  // ==========================================
+  // SHARED CHAT MESSAGES
+  // ==========================================
+
+  const [messages, setMessages] = useState([]);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    console.log("HOME TOKEN:", token);
-
-    // Only redirect if token does not exist
-    if (!token) {
-      navigate("/login");
-    }
+    authCheck()
+      .then(() => console.log("User authenticated"))
+      .catch(() => {
+        localStorage.removeItem("token");
+        navigate("/");
+      });
   }, [navigate]);
 
   return (
     <div className="w-full min-h-screen bg-gray-100 flex items-center justify-center">
+
       <div
         className="
           relative
@@ -44,7 +52,9 @@ const Home = () => {
           md:grid-cols-[300px_1fr]
         "
       >
-        {/* LEFT SIDEBAR */}
+
+        {/* ================= LEFT SIDEBAR ================= */}
+
         <div
           className={`
             bg-white
@@ -61,7 +71,8 @@ const Home = () => {
           />
         </div>
 
-        {/* CHAT */}
+        {/* ================= CHAT ================= */}
+
         <div
           className={`
             bg-white
@@ -75,10 +86,15 @@ const Home = () => {
             selectedUser={selectedUser}
             setSelectedUser={setSelectedUser}
             setShowRightSidebar={setShowRightSidebar}
+
+            // SEND MESSAGES TO CHAT
+            messages={messages}
+            setMessages={setMessages}
           />
         </div>
 
-        {/* RIGHT SIDEBAR */}
+        {/* ================= RIGHT SIDEBAR ================= */}
+
         {selectedUser && (
           <div
             className={`
@@ -105,13 +121,20 @@ const Home = () => {
               }
             `}
           >
+
             <Rightsidebar
               selectedUser={selectedUser}
               setShowRightSidebar={setShowRightSidebar}
+
+              // SEND SAME MESSAGES TO RIGHT SIDEBAR
+              messages={messages}
             />
+
           </div>
         )}
+
       </div>
+
     </div>
   );
 };
