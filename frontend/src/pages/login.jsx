@@ -1,4 +1,4 @@
-+import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
@@ -49,8 +49,8 @@ const Login = () => {
 
       setSuccessMessage(
         isSignUp
-          ? "Account created successfully! 🎉"
-          : "Login successful! Welcome to WebChat 🎉"
+          ? "Account created successfully! "
+          : "Login successful! Welcome to WebChat "
       );
 
       // =========================
