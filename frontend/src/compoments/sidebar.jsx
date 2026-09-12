@@ -344,6 +344,79 @@ const Sidebar = ({
   }, []);
 
   // =====================================================
+  // REALTIME CONTACT ADDED
+  // =====================================================
+
+  useEffect(() => {
+    const handleContactAdded = (data) => {
+      if (!data?.user?._id) {
+        return;
+      }
+
+      const newUser = data.user;
+
+      console.log(
+        "👤 New contact received:",
+        newUser
+      );
+
+      // -----------------------------------------------
+      // ADD TO ALL USERS
+      // -----------------------------------------------
+
+      setAllUsers((prev) => {
+        const exists = prev.some(
+          (user) =>
+            String(user._id) ===
+            String(newUser._id)
+        );
+
+        if (exists) {
+          return prev;
+        }
+
+        return [
+          newUser,
+          ...prev,
+        ];
+      });
+
+      // -----------------------------------------------
+      // ADD TO VISIBLE USERS
+      // -----------------------------------------------
+
+      setUsers((prev) => {
+        const exists = prev.some(
+          (user) =>
+            String(user._id) ===
+            String(newUser._id)
+        );
+
+        if (exists) {
+          return prev;
+        }
+
+        return [
+          newUser,
+          ...prev,
+        ];
+      });
+    };
+
+    socket.on(
+      "contact-added",
+      handleContactAdded
+    );
+
+    return () => {
+      socket.off(
+        "contact-added",
+        handleContactAdded
+      );
+    };
+  }, []);
+
+  // =====================================================
   // SEARCH CONTACTS
   // =====================================================
 
@@ -360,7 +433,9 @@ const Sidebar = ({
         );
 
         setUsers(
-          Array.isArray(data) ? data : []
+          Array.isArray(data)
+            ? data
+            : []
         );
       } catch (error) {
         console.error(
@@ -372,8 +447,12 @@ const Sidebar = ({
       }
     }, 300);
 
-    return () => clearTimeout(delay);
-  }, [searchTerm, allUsers]);
+    return () =>
+      clearTimeout(delay);
+  }, [
+    searchTerm,
+    allUsers,
+  ]);
 
   // =====================================================
   // FILTER USERS
@@ -383,7 +462,8 @@ const Sidebar = ({
     if (activeTab === "unread") {
       return users.filter(
         (user) =>
-          (unreadCounts[user._id] || 0) > 0
+          (unreadCounts[user._id] || 0) >
+          0
       );
     }
 
@@ -405,10 +485,11 @@ const Sidebar = ({
   // SELECT USER
   // =====================================================
 
-  const handleSelectUser = async (user) => {
+  const handleSelectUser = async (
+    user
+  ) => {
     setSelectedUser(user);
 
-    // Clear unread count locally
     setUnreadCounts((prev) => ({
       ...prev,
       [user._id]: 0,
@@ -423,9 +504,10 @@ const Sidebar = ({
     try {
       const data = await getUsers();
 
-      const contactList = Array.isArray(data)
-        ? data
-        : [];
+      const contactList =
+        Array.isArray(data)
+          ? data
+          : [];
 
       setAllUsers(contactList);
       setUsers(contactList);
@@ -479,10 +561,8 @@ const Sidebar = ({
 
       setContactEmail("");
 
-      // Reload sidebar
       await refreshChatOrder();
 
-      // Close modal after short delay
       setTimeout(() => {
         setShowAddContact(false);
         setContactSuccess("");
@@ -519,7 +599,8 @@ const Sidebar = ({
   // =====================================================
 
   const formatTime = (userId) => {
-    const time = latestTimes[userId];
+    const time =
+      latestTimes[userId];
 
     if (!time) return "";
 
@@ -785,7 +866,9 @@ const Sidebar = ({
           <button
             type="button"
             onClick={() =>
-              setActiveTab("favourites")
+              setActiveTab(
+                "favourites"
+              )
             }
             className={`
               px-4
@@ -815,11 +898,13 @@ const Sidebar = ({
       <div className="flex-1 overflow-y-auto">
 
         {loading ? (
+
           <div className="flex items-center justify-center py-10">
             <p className="text-sm text-gray-400">
               Loading chats...
             </p>
           </div>
+
         ) : filteredUsers.length === 0 ? (
 
           /* EMPTY STATE */

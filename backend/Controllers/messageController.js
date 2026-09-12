@@ -11,11 +11,19 @@ const sendMessage = async (req, res) => {
   try {
     const { receiverId, text } = req.body;
 
+    // =================================================
+    // CHECK RECEIVER ID
+    // =================================================
+
     if (!receiverId) {
       return res.status(400).json({
         message: "Receiver is required",
       });
     }
+
+    // =================================================
+    // CHECK MESSAGE CONTENT
+    // =================================================
 
     if (!text && !req.file) {
       return res.status(400).json({
@@ -23,7 +31,22 @@ const sendMessage = async (req, res) => {
       });
     }
 
-    // Check receiver
+    // =================================================
+    // CHECK SENDER
+    // =================================================
+
+    const sender = await User.findById(req.userId);
+
+    if (!sender) {
+      return res.status(404).json({
+        message: "Sender not found",
+      });
+    }
+
+    // =================================================
+    // CHECK RECEIVER
+    // =================================================
+
     const receiver = await User.findById(receiverId);
 
     if (!receiver) {
@@ -32,27 +55,52 @@ const sendMessage = async (req, res) => {
       });
     }
 
-    let imageUrl = "";
+    // =================================================
+    // AUTO ADD SENDER TO RECEIVER CONTACTS
+    // =================================================
+
+    if (!Array.isArray(receiver.contacts)) {
+      receiver.contacts = [];
+    }
+
+    const alreadyContact = receiver.contacts.some(
+      (contactId) =>
+        String(contactId) === String(sender._id)
+    );
+
+    if (!alreadyContact) {
+      receiver.contacts.push(sender._id);
+
+      await receiver.save();
+
+      console.log(
+        "👤 Sender automatically added to receiver contacts:",
+        sender.email
+      );
+    }
 
     // =================================================
     // UPLOAD IMAGE TO CLOUDINARY
     // =================================================
 
+    let imageUrl = "";
+
     if (req.file) {
       const uploadToCloudinary = () => {
         return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "webchat/messages",
-            },
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
+          const stream =
+            cloudinary.uploader.upload_stream(
+              {
+                folder: "webchat/messages",
+              },
+              (error, result) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve(result);
+                }
               }
-            }
-          );
+            );
 
           streamifier
             .createReadStream(req.file.buffer)
@@ -60,7 +108,8 @@ const sendMessage = async (req, res) => {
         });
       };
 
-      const result = await uploadToCloudinary();
+      const result =
+        await uploadToCloudinary();
 
       imageUrl = result.secure_url;
     }
@@ -82,14 +131,19 @@ const sendMessage = async (req, res) => {
     // POPULATE USER DATA
     // =================================================
 
-    const populatedMessage = await Message.findById(
-      message._id
-    )
-      .populate("sender", "fullName profilePic")
-      .populate("receiver", "fullName profilePic");
+    const populatedMessage =
+      await Message.findById(message._id)
+        .populate(
+          "sender",
+          "fullName profilePic"
+        )
+        .populate(
+          "receiver",
+          "fullName profilePic"
+        );
 
     // =================================================
-    // ADD SOCKET IDs
+    // FINAL MESSAGE
     // =================================================
 
     const finalMessage = {
@@ -100,25 +154,30 @@ const sendMessage = async (req, res) => {
       receiverId: String(receiverId),
     };
 
-    console.log("📨 MESSAGE CREATED:", finalMessage);
+    console.log(
+      "📨 MESSAGE CREATED:",
+      finalMessage
+    );
 
     // =================================================
     // RESPONSE
     // =================================================
 
-    res.status(201).json({
+    return res.status(201).json({
       message: finalMessage,
     });
 
   } catch (error) {
-    console.error("Send Message Error:", error);
+    console.error(
+      "Send Message Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to send message",
     });
   }
 };
-
 
 // =====================================================
 // GET MESSAGES
@@ -141,20 +200,28 @@ const getMessage = async (req, res) => {
       ],
     })
       .sort({ createdAt: 1 })
-      .populate("sender", "fullName profilePic")
-      .populate("receiver", "fullName profilePic");
+      .populate(
+        "sender",
+        "fullName profilePic"
+      )
+      .populate(
+        "receiver",
+        "fullName profilePic"
+      );
 
-    res.status(200).json(messages);
+    return res.status(200).json(messages);
 
   } catch (error) {
-    console.error("Get Messages Error:", error);
+    console.error(
+      "Get Messages Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to get messages",
     });
   }
 };
-
 
 // =====================================================
 // MARK MESSAGES AS SEEN / READ
@@ -177,20 +244,23 @@ const markMessageSeen = async (req, res) => {
       }
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Messages marked as seen",
-      modifiedCount: result.modifiedCount,
+      modifiedCount:
+        result.modifiedCount,
     });
 
   } catch (error) {
-    console.error("Mark Seen Error:", error);
+    console.error(
+      "Mark Seen Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
 };
-
 
 // =====================================================
 // GET UNREAD MESSAGE COUNT
@@ -200,25 +270,28 @@ const getUnreadCount = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const count = await Message.countDocuments({
-      sender: userId,
-      receiver: req.userId,
-      seen: false,
-    });
+    const count =
+      await Message.countDocuments({
+        sender: userId,
+        receiver: req.userId,
+        seen: false,
+      });
 
-    res.status(200).json({
+    return res.status(200).json({
       unreadCount: count,
     });
 
   } catch (error) {
-    console.error("Unread Count Error:", error);
+    console.error(
+      "Unread Count Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Unable to get unread count",
     });
   }
 };
-
 
 // =====================================================
 // TOGGLE FAVOURITE
@@ -228,7 +301,8 @@ const toggleFavourite = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const message = await Message.findById(id);
+    const message =
+      await Message.findById(id);
 
     if (!message) {
       return res.status(404).json({
@@ -236,72 +310,106 @@ const toggleFavourite = async (req, res) => {
       });
     }
 
-    message.isFavourite = !message.isFavourite;
+    message.isFavourite =
+      !message.isFavourite;
 
     await message.save();
 
-    const updatedMessage = await Message.findById(message._id)
-      .populate("sender", "fullName profilePic")
-      .populate("receiver", "fullName profilePic");
+    const updatedMessage =
+      await Message.findById(
+        message._id
+      )
+        .populate(
+          "sender",
+          "fullName profilePic"
+        )
+        .populate(
+          "receiver",
+          "fullName profilePic"
+        );
 
-    res.status(200).json({
-      message: "Favourite updated successfully",
+    return res.status(200).json({
+      message:
+        "Favourite updated successfully",
       data: updatedMessage,
     });
 
   } catch (error) {
-    console.error("Favourite Error:", error);
+    console.error(
+      "Favourite Error:",
+      error
+    );
 
-    res.status(500).json({
-      message: "Failed to update favourite",
+    return res.status(500).json({
+      message:
+        "Failed to update favourite",
       error: error.message,
     });
   }
 };
-
 
 // =====================================================
 // GET FAVOURITE MESSAGES
 // =====================================================
 
-const getFavouriteMessages = async (req, res) => {
+const getFavouriteMessages = async (
+  req,
+  res
+) => {
   try {
-    const messages = await Message.find({
-      $or: [
-        {
-          sender: req.userId,
-        },
-        {
-          receiver: req.userId,
-        },
-      ],
-      isFavourite: true,
-    })
-      .sort({ createdAt: -1 })
-      .populate("sender", "fullName profilePic")
-      .populate("receiver", "fullName profilePic");
+    const messages =
+      await Message.find({
+        $or: [
+          {
+            sender: req.userId,
+          },
+          {
+            receiver: req.userId,
+          },
+        ],
 
-    res.status(200).json(messages);
+        isFavourite: true,
+      })
+        .sort({ createdAt: -1 })
+        .populate(
+          "sender",
+          "fullName profilePic"
+        )
+        .populate(
+          "receiver",
+          "fullName profilePic"
+        );
+
+    return res.status(200).json(
+      messages
+    );
 
   } catch (error) {
-    console.error("Get Favourite Error:", error);
+    console.error(
+      "Get Favourite Error:",
+      error
+    );
 
-    res.status(500).json({
-      message: "Unable to get favourite messages",
+    return res.status(500).json({
+      message:
+        "Unable to get favourite messages",
     });
   }
 };
-
 
 // =====================================================
 // DELETE MESSAGE
 // =====================================================
 
-const deletMessage = async (req, res) => {
+const deletMessage = async (
+  req,
+  res
+) => {
   try {
     const { id } = req.params;
 
-    const message = await Message.findById(id);
+    const message =
+      await Message.findById(id);
 
     if (!message) {
       return res.status(404).json({
@@ -309,48 +417,67 @@ const deletMessage = async (req, res) => {
       });
     }
 
+    // Only sender can delete
     if (
       message.sender.toString() !==
       req.userId.toString()
     ) {
       return res.status(403).json({
-        message: "You can only delete your own message",
+        message:
+          "You can only delete your own message",
       });
     }
 
     await Message.findByIdAndDelete(id);
 
-    res.status(200).json({
-      message: "Message deleted successfully",
+    return res.status(200).json({
+      message:
+        "Message deleted successfully",
     });
 
   } catch (error) {
-    console.error("Delete Error:", error);
+    console.error(
+      "Delete Error:",
+      error
+    );
 
-    res.status(500).json({
-      message: "Failed to delete message",
+    return res.status(500).json({
+      message:
+        "Failed to delete message",
       error: error.message,
     });
   }
 };
 
-
 // =====================================================
 // UPDATE MESSAGE
 // =====================================================
 
-const updateMessage = async (req, res) => {
+const updateMessage = async (
+  req,
+  res
+) => {
   try {
     const { text } = req.body;
     const { id } = req.params;
 
+    // =================================================
+    // CHECK TEXT
+    // =================================================
+
     if (!text || !text.trim()) {
       return res.status(400).json({
-        message: "Message text is required",
+        message:
+          "Message text is required",
       });
     }
 
-    const message = await Message.findById(id);
+    // =================================================
+    // FIND MESSAGE
+    // =================================================
+
+    const message =
+      await Message.findById(id);
 
     if (!message) {
       return res.status(404).json({
@@ -358,38 +485,65 @@ const updateMessage = async (req, res) => {
       });
     }
 
+    // =================================================
+    // ONLY SENDER CAN UPDATE
+    // =================================================
+
     if (
       message.sender.toString() !==
       req.userId.toString()
     ) {
       return res.status(403).json({
-        message: "You can only update your own message",
+        message:
+          "You can only update your own message",
       });
     }
 
-    message.text = text.trim();
+    // =================================================
+    // UPDATE TEXT
+    // =================================================
+
+    message.text =
+      text.trim();
 
     await message.save();
 
-    const updatedMessage = await Message.findById(message._id)
-      .populate("sender", "fullName profilePic")
-      .populate("receiver", "fullName profilePic");
+    // =================================================
+    // GET UPDATED MESSAGE
+    // =================================================
 
-    res.status(200).json({
-      message: "Message updated successfully",
+    const updatedMessage =
+      await Message.findById(
+        message._id
+      )
+        .populate(
+          "sender",
+          "fullName profilePic"
+        )
+        .populate(
+          "receiver",
+          "fullName profilePic"
+        );
+
+    return res.status(200).json({
+      message:
+        "Message updated successfully",
       data: updatedMessage,
     });
 
   } catch (error) {
-    console.error("Update Error:", error);
+    console.error(
+      "Update Error:",
+      error
+    );
 
-    res.status(500).json({
-      message: "Failed to update message",
+    return res.status(500).json({
+      message:
+        "Failed to update message",
       error: error.message,
     });
   }
 };
-
 
 // =====================================================
 // EXPORT
