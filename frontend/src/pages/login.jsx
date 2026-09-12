@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
+import { loginUser,registerUser } from "../api/authapi";
+
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
 
@@ -14,9 +16,27 @@ const Login = () => {
     formState: { errors }
   } = useForm();
 
-  const onSubmit = (data) => {
-    console.log(data);
-  };
+  
+  const onSubmit = async (data) => {
+  try {
+    let response;
+
+    if (isSignUp) {
+      response = await registerUser(data);
+    } else {
+      response = await loginUser(data);
+    }
+
+    localStorage.setItem(
+      "token",
+      response.token
+    );
+
+    navigate("/");
+  } catch (error) {
+    console.log(error.response?.data);
+  }
+};
 
   return (
     <div className="

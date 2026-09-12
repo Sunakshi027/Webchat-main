@@ -7,11 +7,14 @@ import { authCheck } from "./auth";
 
 const Home = () => {
   const [selectedUser, setSelectedUser] = useState(null);
+<<<<<<< HEAD
   const [showRightSidebar, setShowRightSidebar] = useState(true);
+=======
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
+>>>>>>> 1f2d71e (Initial Webchat project)
 
   const navigate = useNavigate();
 
-  // 🔐 AUTH CHECK
   useEffect(() => {
     authCheck()
       .then(() => console.log("User authenticated"))
@@ -23,9 +26,9 @@ const Home = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-100 flex items-center justify-center">
-
       <div
         className="
+          relative
           w-full
           h-screen
           bg-white
@@ -42,12 +45,10 @@ const Home = () => {
 
           grid
           grid-cols-1
-          md:grid-cols-[260px_1fr]
-          xl:grid-cols-[280px_1fr_280px]
+          md:grid-cols-[300px_1fr]
         "
       >
-
-        {/* ================= SIDEBAR ================= */}
+        {/* LEFT SIDEBAR */}
         <div
           className={`
             bg-white
@@ -55,7 +56,6 @@ const Home = () => {
             border-gray-200
             overflow-hidden
             min-w-0
-
             ${selectedUser ? "hidden md:block" : "block"}
           `}
         >
@@ -65,47 +65,77 @@ const Home = () => {
           />
         </div>
 
-
-        {/* ================= CHAT ================= */}
+        {/* CHAT */}
         <div
           className={`
             bg-white
             overflow-hidden
             min-w-0
             h-full
-
             ${selectedUser ? "block" : "hidden md:block"}
           `}
         >
+<<<<<<< HEAD
          <Chat
   selectedUser={selectedUser}
   setSelectedUser={setSelectedUser}
   setShowRightSidebar={setShowRightSidebar}
 />
+=======
+          <Chat
+            selectedUser={selectedUser}
+            setSelectedUser={setSelectedUser}
+            setShowRightSidebar={setShowRightSidebar}
+          />
+>>>>>>> 1f2d71e (Initial Webchat project)
         </div>
 
-
-        {/* ================= RIGHT SIDEBAR ================= */}
+        {/* RIGHT SIDEBAR OVERLAY */}
         {selectedUser && (
           <div
-            className="
-              hidden
-              xl:block
-              bg-gray-50
+            className={`
+              absolute
+              top-0
+              right-0
+              h-full
+
+              w-full
+              sm:w-[380px]
+              md:w-[400px]
+
+              bg-white
               border-l
               border-gray-200
-              overflow-hidden
-              min-w-0
-            "
+              shadow-2xl
+
+              z-50
+
+              transform
+              transition-transform
+              duration-300
+              ease-out
+
+              ${
+                showRightSidebar
+                  ? "translate-x-0"
+                  : "translate-x-full"
+              }
+            `}
           >
+<<<<<<< HEAD
            {showRightSidebar && (
   <Rightsidebar
     selectedUser={selectedUser}
   />
 )}
+=======
+            <Rightsidebar
+              selectedUser={selectedUser}
+              setShowRightSidebar={setShowRightSidebar}
+            />
+>>>>>>> 1f2d71e (Initial Webchat project)
           </div>
         )}
-
       </div>
     </div>
   );

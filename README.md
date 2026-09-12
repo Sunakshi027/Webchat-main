@@ -28,3 +28,5 @@ frontend architecture.
 This project demonstrates frontend skills in building interactive applications,
 handling UI state, and designing scalable component structures similar to
 real-world chat platforms.
+
+
