@@ -6,7 +6,7 @@ const {
   getUser,
   getProfile,
   updateProfile,
-  searchUsers,
+  searchUsers,addContact
 } = require("../Controllers/userController");
 
 const authMiddleware = require("../middleware/authMiddleeware");
@@ -37,7 +37,11 @@ router.get(
   authMiddleware,
   searchUsers
 );
-
+router.post(
+  "/add-contact",
+  authMiddleware,
+  addContact
+);
 
 
 
