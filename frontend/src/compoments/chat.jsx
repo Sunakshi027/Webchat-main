@@ -4,7 +4,7 @@ import avtar from "../assets/avrar.jpg";
 import arrow from "../assets/arrow icon.jpg";
 import galary from "../assets/galary icon1.png";
 import send from "../assets/sendmessage.png";
-
+import imgmsg from "../assets/image.png";
 import { formatMessageTime } from "../library/utils";
 
 import {
@@ -117,7 +117,7 @@ const Chat = ({
       socket.emit("user-online", String(currentUser._id));
 
       console.log(
-        "🟢 USER REGISTERED:",
+        "USER REGISTERED:",
         currentUser._id
       );
     };
@@ -147,7 +147,7 @@ const Chat = ({
         return;
       }
 
-      console.log("🔥 NEW MESSAGE:", message);
+      console.log("NEW MESSAGE:", message);
 
       const senderId =
         message.senderId?._id ||
@@ -194,7 +194,7 @@ const Chat = ({
 
       if (!isCurrentChat) {
         console.log(
-          "⚠️ Message belongs to another chat"
+          " Message belongs to another chat"
         );
 
         return;
@@ -376,7 +376,7 @@ const Chat = ({
         );
 
         console.log(
-          "👀 Messages marked seen"
+          "Messages marked seen"
         );
       } catch (error) {
         console.log(
@@ -723,7 +723,7 @@ const Chat = ({
               text-3xl
             "
           >
-            💬
+            <img src={imgmsg}/>
           </div>
 
           <h2
@@ -1133,14 +1133,15 @@ const Chat = ({
                       {/* MENU */}
 
                       {isMe && (
-                        <div
-                          className="
-                            absolute
-                            -left-10
-                            top-1/2
-                            -translate-y-1/2
-                            z-40
-                          "
+                     <div 
+  className="
+    absolute 
+    -right-10 
+    top-[20px] 
+    -translate-y-1/2 
+    z-40
+  "
+
                           onClick={(e) =>
                             e.stopPropagation()
                           }

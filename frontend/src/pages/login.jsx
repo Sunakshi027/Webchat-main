@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-
+import imglogo from "../assets/image.png";
 import { loginUser, registerUser } from "../api/authapi";
 
 const Login = () => {
@@ -176,7 +176,7 @@ const Login = () => {
             "
           >
             <span className="text-2xl">
-              💬
+              <img src={imglogo}/>
             </span>
           </div>
         </div>
